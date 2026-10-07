@@ -26,7 +26,9 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 ## インストール
 
-バイナリ配布はまだありません。下記の手順でソースからビルドしてください。NSIS インストーラと MSI が `src-tauri/target/release/bundle/` に生成されます。
+[Releases ページ](https://github.com/racode246/leafbound/releases)からインストーラ(`Leafbound_<version>_x64-setup.exe`)または MSI をダウンロードしてください。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
+
+下記の手順でソースからビルドすることもできます。NSIS インストーラと MSI が `src-tauri/target/release/bundle/` に生成されます。
 
 動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。
 
