@@ -50,7 +50,7 @@ function Shell({ library, setLibrary }: ShellProps) {
   // as soon as each is done and concurrent requests never interleave.
   const queueRef = useRef<ImportItem[]>([])
   const runningRef = useRef(false)
-  const runStatsRef = useRef({ done: 0, total: 0, added: [] as Book[] })
+  const runStatsRef = useRef({ done: 0, total: 0 })
 
   const mergeAdded = useCallback(
     (added: Book[]) => {
@@ -68,7 +68,6 @@ function Shell({ library, setLibrary }: ShellProps) {
   const recordOutcome = useCallback(
     (outcome: ImportOutcome) => {
       mergeAdded(outcome.added)
-      runStatsRef.current.added.push(...outcome.added)
       if (outcome.duplicates.length > 0 || outcome.failed.length > 0) {
         setNoticeState((prev) => ({
           duplicates: [...prev.duplicates, ...outcome.duplicates],
@@ -97,13 +96,7 @@ function Shell({ library, setLibrary }: ShellProps) {
       }
     } finally {
       runningRef.current = false
-      const stats = runStatsRef.current
-      // A single dropped/opened book is opened right away.
-      if (stats.total === 1 && stats.added.length === 1) {
-        const book = stats.added[0]
-        setRoute({ kind: 'reader', bookId: book.id })
-      }
-      runStatsRef.current = { done: 0, total: 0, added: [] }
+      runStatsRef.current = { done: 0, total: 0 }
       setProgress(null)
     }
   }, [recordOutcome])
