@@ -26,10 +26,13 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const bookRef = useRef<EpubBook | null>(null)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const reportRef = useRef<(() => Promise<void>) | null>(null)
   const lastCfiRef = useRef<string | null>(book.progress?.cfi ?? null)
   const saveTimer = useRef<number | null>(null)
 
   const [toc, setToc] = useState<NavItem[]>([])
+  const tocRef = useRef<NavItem[]>([])
+  tocRef.current = toc
   const [panel, setPanel] = useState<Panel>('none')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorText, setErrorText] = useState('')
@@ -81,21 +84,30 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         renditionRef.current = rendition
         applyReaderTheme(rendition, settingsRef.current)
 
-        rendition.on('relocated', (loc: Location) => {
+        const report = (loc: Location | undefined | null) => {
+          if (!loc || !loc.start || !epubBook) return
           const cfi = loc.start.cfi
           let pct: number
-          if (epubBook && epubBook.locations.length() > 0) {
+          if (epubBook.locations.length() > 0) {
             pct = epubBook.locations.percentageFromCfi(cfi)
-          } else if (typeof loc.start.percentage === 'number') {
+          } else if (typeof loc.start.percentage === 'number' && loc.start.percentage > 0) {
             pct = loc.start.percentage
           } else {
-            const total = (epubBook?.spine as unknown as { length?: number })?.length ?? 1
+            const total = (epubBook.spine as unknown as { length?: number })?.length ?? 1
             pct = loc.start.index / Math.max(1, total)
           }
+          if (!Number.isFinite(pct)) pct = 0
           persist(cfi, Math.min(1, Math.max(0, pct)))
-          const item = findTocItem(epubBook, toc, cfi)
+          const item = findTocItem(epubBook, tocRef.current, cfi)
           if (item) setChapter(item)
-        })
+        }
+        reportRef.current = async () => {
+          const r = renditionRef.current
+          if (!r) return
+          report((await Promise.resolve(r.currentLocation() as unknown)) as Location)
+        }
+
+        rendition.on('relocated', report)
 
         rendition.on('keydown', handleKey)
 
@@ -121,7 +133,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         setStatus('ready')
 
         const nav = await epubBook.loaded.navigation
-        if (!disposed) setToc(nav.toc)
+        if (disposed) return
+        tocRef.current = nav.toc
+        setToc(nav.toc)
+        await reportRef.current?.()
 
         // Build locations in the background for accurate percentages.
         await epubBook.ready
@@ -142,6 +157,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     return () => {
       disposed = true
       renditionRef.current = null
+      reportRef.current = null
       bookRef.current = null
       try {
         epubBook?.destroy()
@@ -196,9 +212,16 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     }
   }, [])
 
-  const goTo = (href: string) => {
-    void renditionRef.current?.display(href)
+  const goTo = async (href: string) => {
     setPanel('none')
+    const r = renditionRef.current
+    if (!r) return
+    try {
+      await r.display(href)
+      await reportRef.current?.()
+    } catch (err) {
+      console.error('navigation failed', href, err)
+    }
   }
 
   return (
@@ -244,7 +267,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           </div>
         )}
 
-        {panel === 'toc' && <TocPanel toc={toc} onNavigate={goTo} onClose={() => setPanel('none')} />}
+        {panel === 'toc' && <TocPanel toc={toc} onNavigate={(href) => void goTo(href)} onClose={() => setPanel('none')} />}
         {panel === 'settings' && (
           <ReaderSettings settings={settings} onChange={onSettings} onClose={() => setPanel('none')} />
         )}

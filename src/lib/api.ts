@@ -1,10 +1,12 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { Book, Library, Settings } from '../types'
+import type { LeafboundApi } from './apiTypes'
+import { mockApi } from './mockApi'
 
-export const api = {
+const tauriApi: LeafboundApi = {
   getLibrary: () => invoke<Library>('get_library'),
 
   async pickAndImport(): Promise<Book[]> {
@@ -18,26 +20,29 @@ export const api = {
     return invoke<Book[]>('import_books', { paths })
   },
 
-  importPaths: (paths: string[]) => invoke<Book[]>('import_books', { paths }),
-  readBook: (id: string) => invoke<ArrayBuffer>('read_book', { id }),
-  saveProgress: (id: string, cfi: string, percent: number) =>
-    invoke<void>('save_progress', { id, cfi, percent }),
-  setBookCategories: (id: string, categories: string[]) =>
-    invoke<Book>('set_book_categories', { id, categories }),
-  deleteBook: (id: string) => invoke<void>('delete_book', { id }),
-  addCategory: (name: string) => invoke<string[]>('add_category', { name }),
-  renameCategory: (from: string, to: string) => invoke<Library>('rename_category', { from, to }),
-  removeCategory: (name: string) => invoke<Library>('remove_category', { name }),
+  importPaths: (paths) => invoke<Book[]>('import_books', { paths }),
+  readBook: (id) => invoke<ArrayBuffer>('read_book', { id }),
+  saveProgress: (id, cfi, percent) => invoke<void>('save_progress', { id, cfi, percent }),
+  setBookCategories: (id, categories) => invoke<Book>('set_book_categories', { id, categories }),
+  deleteBook: (id) => invoke<void>('delete_book', { id }),
+  addCategory: (name) => invoke<string[]>('add_category', { name }),
+  renameCategory: (from, to) => invoke<Library>('rename_category', { from, to }),
+  removeCategory: (name) => invoke<Library>('remove_category', { name }),
   saveSettings: (settings: Settings) => invoke<Settings>('save_settings', { settings }),
   takePendingOpenFiles: () => invoke<string[]>('take_pending_open_files'),
 
-  onOpenFiles: (cb: (paths: string[]) => void): Promise<UnlistenFn> =>
-    listen<string[]>('open-files', (event) => cb(event.payload)),
+  onOpenFiles: (cb) => listen<string[]>('open-files', (event) => cb(event.payload)),
 
-  onDragDrop: (cb: (paths: string[]) => void): Promise<UnlistenFn> =>
+  onDragDrop: (cb) =>
     getCurrentWebview().onDragDropEvent((event) => {
       if (event.payload.type === 'drop') cb(event.payload.paths)
     }),
 
-  coverUrl: (book: Book): string | null => (book.coverPath ? convertFileSrc(book.coverPath) : null)
+  coverUrl: (book) => (book.coverPath ? convertFileSrc(book.coverPath) : null)
 }
+
+const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+export const isBrowserMode = !inTauri
+
+export const api: LeafboundApi = inTauri ? tauriApi : mockApi

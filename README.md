@@ -5,6 +5,8 @@ Windows 向けの、静かで軽い EPUB リーダーです。
 
 Built with [Tauri 2](https://tauri.app/) (Rust) + React + TypeScript + [epub.js](https://github.com/futurepress/epub.js).
 
+![Leafbound reader](docs/screenshot-reader.png)
+
 ## Features / 機能
 
 - EPUB 2 / EPUB 3 を開く(本はアプリ内ライブラリにコピーされます)
@@ -38,6 +40,10 @@ Other scripts:
 npm run typecheck   # TypeScript
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+Browser mode: `npm run dev` and open http://localhost:1420 in a browser.
+Without the Tauri shell the app falls back to an in-memory mock backend with the
+sample book pre-loaded, which is handy for UI work. Nothing is persisted there.
 
 ## Where data lives / データの保存場所
 

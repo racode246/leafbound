@@ -7,3 +7,6 @@ release/
 Thumbs.db
 .vscode/
 .idea/
+
+# local screenshots
+.claude-shot-*.png
