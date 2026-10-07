@@ -101,12 +101,96 @@ input:not([type]) {
   color: var(--danger);
 }
 
+/* ---------- Title bar (custom window frame) ---------- */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  flex-shrink: 0;
+  border-bottom: 1px solid;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.titlebar-left,
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.titlebar-center {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bar-button {
+  background: transparent;
+  border-color: transparent;
+  padding: 5px 10px;
+}
+
+.bar-button:hover,
+.bar-button.active {
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.window-controls {
+  display: flex;
+  align-self: stretch;
+  margin-left: 4px;
+}
+
+.window-controls button {
+  width: 46px;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.window-controls button:hover {
+  background: rgba(127, 127, 127, 0.2);
+}
+
+.window-controls button.close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
 /* ---------- Library ---------- */
 
 .library {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.library-body {
   display: grid;
   grid-template-columns: 220px 1fr;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.library-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 auto 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar {
@@ -225,18 +309,18 @@ input:not([type]) {
 }
 
 .brand {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  margin: 0 auto 0 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 0 4px;
   letter-spacing: 0.01em;
 }
 
 .brand-mark {
   color: var(--leaf);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .search {
@@ -620,39 +704,27 @@ input:not([type]) {
   height: 100%;
 }
 
-.reader-bar,
 .reader-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid;
-}
-
-.reader-foot {
-  border-bottom: none;
   border-top: 1px solid;
   padding: 6px 16px;
 }
 
-.reader-bar button,
 .panel-head button {
   background: transparent;
   border-color: transparent;
 }
 
-.reader-bar button:hover,
-.reader-bar button.active {
-  background: rgba(127, 127, 127, 0.15);
-}
-
 .reader-title {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
 }
 
 .reader-chapter {

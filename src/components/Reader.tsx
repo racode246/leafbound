@@ -5,6 +5,7 @@ import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import type { Book, Progress, Settings } from '../types'
 import ReaderSettings from './ReaderSettings'
 import TocPanel from './TocPanel'
+import TitleBar from './TitleBar'
 
 interface Props {
   book: Book
@@ -226,25 +227,45 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   return (
     <div className="reader" style={{ background: palette.bg, color: palette.chromeFg }} data-theme={settings.theme}>
-      <header className="reader-bar" style={{ background: palette.chrome, borderColor: palette.border }}>
-        <button type="button" onClick={onBack} title="ライブラリへ戻る">
-          ← ライブラリ
-        </button>
-        <div className="reader-title">
-          <strong>{book.title}</strong>
-          {chapter && <span className="reader-chapter"> — {chapter}</span>}
-        </div>
-        <button type="button" className={panel === 'toc' ? 'active' : ''} onClick={() => setPanel(panel === 'toc' ? 'none' : 'toc')}>
-          目次
-        </button>
-        <button
-          type="button"
-          className={panel === 'settings' ? 'active' : ''}
-          onClick={() => setPanel(panel === 'settings' ? 'none' : 'settings')}
-        >
-          Aa 表示
-        </button>
-      </header>
+      <TitleBar
+        bg={palette.chrome}
+        fg={palette.chromeFg}
+        border={palette.border}
+        left={
+          <button type="button" className="bar-button" onClick={onBack} title="ライブラリへ戻る">
+            ← ライブラリ
+          </button>
+        }
+        center={
+          <div className="reader-title" data-tauri-drag-region>
+            <strong data-tauri-drag-region>{book.title}</strong>
+            {chapter && (
+              <span className="reader-chapter" data-tauri-drag-region>
+                {' '}
+                — {chapter}
+              </span>
+            )}
+          </div>
+        }
+        right={
+          <>
+            <button
+              type="button"
+              className={`bar-button ${panel === 'toc' ? 'active' : ''}`}
+              onClick={() => setPanel(panel === 'toc' ? 'none' : 'toc')}
+            >
+              目次
+            </button>
+            <button
+              type="button"
+              className={`bar-button ${panel === 'settings' ? 'active' : ''}`}
+              onClick={() => setPanel(panel === 'settings' ? 'none' : 'settings')}
+            >
+              Aa 表示
+            </button>
+          </>
+        }
+      />
 
       <div className="reader-body">
         {flow === 'paginated' && (

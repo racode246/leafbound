@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import BookCard from './BookCard'
 import BookRow from './BookRow'
 import CategoryPicker from './CategoryPicker'
+import TitleBar from './TitleBar'
 
 interface Props {
   library: Library
@@ -99,6 +100,20 @@ export default function LibraryView({
 
   return (
     <div className="library">
+      <TitleBar
+        bg="var(--paper-2)"
+        fg="var(--ink)"
+        border="var(--line)"
+        left={
+          <span className="brand" data-tauri-drag-region>
+            <span className="brand-mark" aria-hidden="true">
+              ❦
+            </span>
+            Leafbound
+          </span>
+        }
+      />
+      <div className="library-body">
       <Sidebar
         categories={library.categories}
         counts={counts.map}
@@ -113,11 +128,8 @@ export default function LibraryView({
 
       <main className="library-main">
         <header className="library-toolbar">
-          <h1 className="brand">
-            <span className="brand-mark" aria-hidden="true">
-              ❦
-            </span>
-            Leafbound
+          <h1 className="library-heading">
+            {selected === ALL_BOOKS ? 'すべての本' : selected === UNCATEGORIZED ? '未分類' : selected}
           </h1>
           <input
             type="search"
@@ -214,6 +226,7 @@ export default function LibraryView({
           </table>
         )}
       </main>
+      </div>
 
       {picker && (
         <CategoryPicker

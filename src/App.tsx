@@ -55,8 +55,15 @@ export default function App() {
       }
     })()
 
-    void api.onOpenFiles((paths) => void importPaths(paths)).then((un) => unlisteners.push(un))
-    void api.onDragDrop((paths) => void importPaths(paths)).then((un) => unlisteners.push(un))
+    // Listeners register asynchronously; if the effect was already cleaned up
+    // by the time they resolve (e.g. React StrictMode), drop them immediately
+    // so a file drop is never handled twice.
+    const keep = (un: () => void) => {
+      if (disposed) un()
+      else unlisteners.push(un)
+    }
+    void api.onOpenFiles((paths) => void importPaths(paths)).then(keep)
+    void api.onDragDrop((paths) => void importPaths(paths)).then(keep)
 
     return () => {
       disposed = true
