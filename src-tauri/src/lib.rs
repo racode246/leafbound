@@ -1,5 +1,6 @@
 mod commands;
 mod cover;
+mod covers_protocol;
 pub mod library;
 
 use std::sync::Mutex;
@@ -34,6 +35,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .register_uri_scheme_protocol(covers_protocol::SCHEME, covers_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             let store = LibraryStore::load(data_dir)?;

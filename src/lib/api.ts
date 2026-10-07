@@ -40,7 +40,8 @@ const tauriApi: LeafboundApi = {
       if (event.payload.type === 'drop') cb(event.payload.paths)
     }),
 
-  coverUrl: (book) => (book.coverPath ? convertFileSrc(book.coverPath) : null)
+  // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs
+  coverUrl: (book) => (book.hasCover ? convertFileSrc(book.id, 'lbcover') : null)
 }
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
