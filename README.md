@@ -1,78 +1,98 @@
 # Leafbound
 
 A calm, open-source EPUB reader for Windows.
-Windows 向けの、静かで軽い EPUB リーダーです。
 
-Built with [Tauri 2](https://tauri.app/) (Rust) + React + TypeScript + [epub.js](https://github.com/futurepress/epub.js).
+[日本語の README はこちら](README.ja.md)
 
-![Leafbound reader](docs/screenshot-reader.png)
+![Leafbound library](docs/screenshot-library.png)
 
-## Features / 機能
+Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript and [epub.js](https://github.com/futurepress/epub.js). It keeps your books in a local library, remembers where you stopped, and stays out of the way while you read.
 
-- EPUB 2 / EPUB 3 を開く(本はアプリ内ライブラリにコピーされます)
-- 読書位置の自動保存と再開
-- カテゴリによる本の整理(複数カテゴリ可)
-- 表紙グリッド表示とリスト表示の切り替え
-- 横読み(ページ送り)と縦読み(連続スクロール)
-- 文字サイズ、フォント(プリセット + 任意のインストール済みフォント)、行間の調整
-- 見開き表示(単ページ / 自動 / 見開き)
-- 白 / セピア / 黒の配色
-- UI 言語: 日本語 / English(既定はシステム言語に従う)
-- 目次ジャンプ、ライブラリの検索、並び替え
-- 本文内検索(Ctrl+F)
-- ハイライト(4 色)とメモ。選択した文字から追加し、一覧からジャンプ
-- エクスプローラーからの `.epub` ドラッグ＆ドロップ、ダブルクリックで開く(ファイル関連付け)
+## Features
 
-## Development / 開発
+- Opens EPUB 2 and EPUB 3 files. Books are copied into a local library; your original files are never modified.
+- Remembers your reading position per book and resumes there.
+- Categories for organizing the library. A book can belong to any number of categories.
+- Cover grid or list view, search by title or author, and sorting by recently read, date added, title or author.
+- Paged (horizontal) or continuous scrolling (vertical) reading.
+- Single page, automatic or forced two-page spread.
+- Font family (presets or any installed font), font size and line spacing.
+- Light, sepia and dark color schemes.
+- Table of contents, full-text search (Ctrl+F) and highlights in four colors with notes.
+- Drag and drop EPUB files onto the window, or open them from Explorer through the `.epub` file association. Leafbound runs as a single instance.
+- Interface in English and Japanese. The system language is used by default.
+- Vertical Japanese text (`writing-mode: vertical-rl`) is rendered exactly as the publisher specified.
+- Duplicate detection: importing the same file twice is skipped.
 
-Prerequisites: Node.js 20+, Rust (stable, MSVC toolchain), Visual Studio Build Tools with the C++ workload, WebView2 (bundled with Windows 11).
+## Installation
+
+There are no binary releases yet. Build an installer from source (see below); the NSIS installer and MSI are written to `src-tauri/target/release/bundle/`.
+
+Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in Windows 11).
+
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `→` `PageDown` `Space` | Next page |
+| `←` `PageUp` | Previous page |
+| `Ctrl+F` | Search in the book |
+| `Esc` | Close the open panel |
+
+Mouse wheel turns pages in paged mode.
+
+## Building from source
+
+Prerequisites:
+
+- Node.js 20 or newer
+- Rust (stable, `x86_64-pc-windows-msvc`)
+- Visual Studio Build Tools 2022 with the "Desktop development with C++" workload
+- WebView2 runtime (bundled with Windows 11)
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev      # run with hot reload
+npm run tauri build    # produce the installer and MSI
 ```
 
-Production build (NSIS installer and MSI under `src-tauri/target/release/bundle/`):
+Checks:
 
 ```bash
-npm run tauri build
-```
-
-Other scripts:
-
-```bash
-npm run typecheck   # TypeScript
+npm run typecheck
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Browser mode: `npm run dev` and open http://localhost:1420 in a browser.
-Without the Tauri shell the app falls back to an in-memory mock backend with the
-sample book pre-loaded, which is handy for UI work. Nothing is persisted there.
+Browser mode: `npm run dev` and open http://localhost:1420 in a browser. Outside the Tauri shell the app falls back to an in-memory mock backend with a sample book, which is convenient for UI work. Nothing is persisted in that mode.
 
-## Where data lives / データの保存場所
+## Where your data lives
 
 `%APPDATA%\dev.leafbound.app\`
 
-- `library.json` – books, categories, reading progress, settings
-- `books\` – imported EPUB copies
-- `covers\` – extracted cover images
-- `annotations\` – highlights and notes, one JSON file per book
+| Path | Contents |
+|---|---|
+| `library.json` | Books, categories, reading progress and settings |
+| `books\` | Imported EPUB copies |
+| `covers\` | Extracted cover images |
+| `annotations\` | Highlights and notes, one JSON file per book |
 
-Deleting a book from the library also deletes its copy. Original files are never touched.
+Removing a book from the library deletes its copy and annotations. Original files are not touched.
 
 ## Project layout
 
 ```
-src/            React frontend (library, reader, settings)
-src-tauri/      Rust backend (library store, EPUB metadata, IPC commands)
-scripts/        Icon generator
+src/            React frontend: library, reader, settings, i18n
+src-tauri/      Rust backend: library store, EPUB metadata and cover extraction, IPC commands
+scripts/        Helpers: app icon, sample EPUB fixture, demo books for screenshots
 ```
 
 ## Roadmap
 
-- 複数ウィンドウ
+- Multiple windows
 
-縦書きの EPUB は、出版社の指定(`writing-mode: vertical-rl`)をそのまま表示します。
+## Contributing
+
+Issues and pull requests are welcome. Please run `npm run typecheck` and `cargo test` before opening a pull request. New user-facing strings go into both dictionaries in `src/i18n.tsx`.
 
 ## License
 
