@@ -2,7 +2,7 @@
 
 Windows 向けの、静かで軽いオープンソース EPUB リーダーです。
 
-[English README](README.md)
+[English](README.md) | **日本語**
 
 ![Leafbound のライブラリ](docs/screenshot-library.png)
 

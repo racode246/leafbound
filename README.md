@@ -2,7 +2,7 @@
 
 A calm, open-source EPUB reader for Windows.
 
-[日本語の README はこちら](README.ja.md)
+**English** | [日本語](README.ja.md)
 
 ![Leafbound library](docs/screenshot-library.png)
 
