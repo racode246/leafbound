@@ -39,7 +39,21 @@ const tauriApi: LeafboundApi = {
 
   onDragDrop: (cb) =>
     getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === 'drop') cb(event.payload.paths)
+      const p = event.payload
+      switch (p.type) {
+        case 'enter':
+          cb({ type: 'enter', paths: p.paths })
+          break
+        case 'over':
+          cb({ type: 'over' })
+          break
+        case 'drop':
+          cb({ type: 'drop', paths: p.paths })
+          break
+        case 'leave':
+          cb({ type: 'leave' })
+          break
+      }
     }),
 
   // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs

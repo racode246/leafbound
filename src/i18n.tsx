@@ -6,6 +6,7 @@ export type LangSetting = Lang | 'system'
 const ja = {
   'boot.loading': 'ライブラリを読み込み中…',
   'dialog.addEpub': 'EPUB を追加',
+  'drop.hint': 'ここにドロップして EPUB を追加',
   close: '閉じる',
 
   'lib.all': 'すべての本',
@@ -126,6 +127,7 @@ export type Key = keyof typeof ja
 const en: Record<Key, string> = {
   'boot.loading': 'Loading library…',
   'dialog.addEpub': 'Add EPUB',
+  'drop.hint': 'Drop to add EPUB files',
   close: 'Close',
 
   'lib.all': 'All books',

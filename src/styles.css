@@ -169,6 +169,37 @@ input:not([type]) {
   color: #fff;
 }
 
+/* ---------- Drop overlay ---------- */
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(47, 93, 80, 0.18);
+  pointer-events: none;
+}
+
+.drop-overlay-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 28px;
+  border-radius: 14px;
+  border: 2px dashed var(--leaf);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.drop-overlay-mark {
+  color: var(--leaf);
+  font-size: 24px;
+}
+
 /* ---------- Library ---------- */
 
 .library {

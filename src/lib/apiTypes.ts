@@ -2,6 +2,12 @@ import type { Annotation, Book, ImportOutcome, Library, Settings } from '../type
 
 export type Unlisten = () => void
 
+export type DragDropEvent =
+  | { type: 'enter'; paths: string[] }
+  | { type: 'over' }
+  | { type: 'drop'; paths: string[] }
+  | { type: 'leave' }
+
 export interface LeafboundApi {
   getLibrary(): Promise<Library>
   pickAndImport(dialogTitle: string): Promise<ImportOutcome>
@@ -18,6 +24,6 @@ export interface LeafboundApi {
   saveAnnotations(id: string, annotations: Annotation[]): Promise<void>
   takePendingOpenFiles(): Promise<string[]>
   onOpenFiles(cb: (paths: string[]) => void): Promise<Unlisten>
-  onDragDrop(cb: (paths: string[]) => void): Promise<Unlisten>
+  onDragDrop(cb: (event: DragDropEvent) => void): Promise<Unlisten>
   coverUrl(book: Book): string | null
 }

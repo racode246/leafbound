@@ -28,6 +28,7 @@ function Shell({ library, setLibrary }: ShellProps) {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const libraryRef = useRef<Library | null>(null)
   libraryRef.current = library
   const tRef = useRef(t)
@@ -98,8 +99,19 @@ function Shell({ library, setLibrary }: ShellProps) {
       if (disposed) un()
       else unlisteners.push(un)
     }
-    void api.onOpenFiles((paths) => void importPaths(paths)).then(keep)
-    void api.onDragDrop((paths) => void importPaths(paths)).then(keep)
+    const failed = (what: string) => (err: unknown) => setError(`${what}: ${String(err)}`)
+    void api
+      .onOpenFiles((paths) => void importPaths(paths))
+      .then(keep)
+      .catch(failed('open-files listener'))
+    void api
+      .onDragDrop((event) => {
+        if (event.type === 'enter' || event.type === 'over') setDragging(true)
+        else setDragging(false)
+        if (event.type === 'drop') void importPaths(event.paths)
+      })
+      .then(keep)
+      .catch(failed('drag-drop listener'))
 
     return () => {
       disposed = true
@@ -146,34 +158,49 @@ function Shell({ library, setLibrary }: ShellProps) {
     return <div className="boot">{error ? <p className="error">{error}</p> : t('boot.loading')}</div>
   }
 
+  const dropOverlay = dragging && (
+    <div className="drop-overlay" aria-hidden="true">
+      <div className="drop-overlay-card">
+        <span className="drop-overlay-mark">❦</span>
+        {t('drop.hint')}
+      </div>
+    </div>
+  )
+
   if (route.kind === 'reader') {
     const book = library.books.find((b) => b.id === route.bookId)
     if (book) {
       return (
-        <Reader
-          book={book}
-          settings={library.settings}
-          onSettings={updateSettings}
-          onBack={() => setRoute({ kind: 'library' })}
-          onProgress={(progress) => replaceBook({ ...book, progress, lastOpenedAt: progress.updatedAt })}
-        />
+        <>
+          <Reader
+            book={book}
+            settings={library.settings}
+            onSettings={updateSettings}
+            onBack={() => setRoute({ kind: 'library' })}
+            onProgress={(progress) => replaceBook({ ...book, progress, lastOpenedAt: progress.updatedAt })}
+          />
+          {dropOverlay}
+        </>
       )
     }
   }
 
   return (
-    <LibraryView
-      library={library}
-      importing={importing}
-      error={error}
-      notice={notice}
-      onDismissError={() => setError(null)}
-      onDismissNotice={() => setNotice(null)}
-      onImport={handleImport}
-      onOpen={(book) => setRoute({ kind: 'reader', bookId: book.id })}
-      onSettings={updateSettings}
-      onLibrary={setLibrary}
-      onBook={replaceBook}
-    />
+    <>
+      <LibraryView
+        library={library}
+        importing={importing}
+        error={error}
+        notice={notice}
+        onDismissError={() => setError(null)}
+        onDismissNotice={() => setNotice(null)}
+        onImport={handleImport}
+        onOpen={(book) => setRoute({ kind: 'reader', bookId: book.id })}
+        onSettings={updateSettings}
+        onLibrary={setLibrary}
+        onBook={replaceBook}
+      />
+      {dropOverlay}
+    </>
   )
 }

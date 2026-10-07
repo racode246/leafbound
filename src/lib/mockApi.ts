@@ -136,6 +136,33 @@ export const mockApi: LeafboundApi = {
   },
   takePendingOpenFiles: async () => [],
   onOpenFiles: async () => () => {},
-  onDragDrop: async () => () => {},
+  onDragDrop: async (cb) => {
+    // In a plain browser, use HTML5 drag and drop for the overlay feedback;
+    // file contents are read directly since there are no OS paths.
+    const over = (e: DragEvent) => {
+      e.preventDefault()
+      cb({ type: 'over' })
+    }
+    const leave = () => cb({ type: 'leave' })
+    const drop = (e: DragEvent) => {
+      e.preventDefault()
+      cb({ type: 'leave' })
+      const picked = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.name.toLowerCase().endsWith('.epub'))
+      for (const file of picked) {
+        const id = crypto.randomUUID()
+        files.set(id, () => file.arrayBuffer())
+        state.books.push({ ...sample, id, title: file.name.replace(/\.epub$/i, ''), author: '', fileName: file.name, addedAt: now() })
+      }
+      if (picked.length > 0) cb({ type: 'drop', paths: [] })
+    }
+    window.addEventListener('dragover', over)
+    window.addEventListener('dragleave', leave)
+    window.addEventListener('drop', drop)
+    return () => {
+      window.removeEventListener('dragover', over)
+      window.removeEventListener('dragleave', leave)
+      window.removeEventListener('drop', drop)
+    }
+  },
   coverUrl: () => null
 }
