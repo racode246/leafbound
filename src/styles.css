@@ -292,6 +292,11 @@ input:not([type]) {
   flex-shrink: 0;
 }
 
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
 .library-main {
   display: flex;
   flex-direction: column;

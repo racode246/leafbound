@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import {
   FONT_PRESETS,
   FONT_SIZE_MAX,
@@ -6,8 +7,10 @@ import {
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
   type Settings,
+  type Spread,
   type ThemeName
 } from '../types'
+import LanguageSelect from './LanguageSelect'
 
 interface Props {
   settings: Settings
@@ -15,98 +18,93 @@ interface Props {
   onClose: () => void
 }
 
-const THEMES: { value: ThemeName; label: string }[] = [
-  { value: 'light', label: '白' },
-  { value: 'sepia', label: 'セピア' },
-  { value: 'dark', label: '黒' }
+const THEMES: { value: ThemeName; key: 'theme.light' | 'theme.sepia' | 'theme.dark' }[] = [
+  { value: 'light', key: 'theme.light' },
+  { value: 'sepia', key: 'theme.sepia' },
+  { value: 'dark', key: 'theme.dark' }
+]
+
+const SPREADS: { value: Spread; key: 'spread.none' | 'spread.auto' | 'spread.always' }[] = [
+  { value: 'none', key: 'spread.none' },
+  { value: 'auto', key: 'spread.auto' },
+  { value: 'always', key: 'spread.always' }
 ]
 
 export default function ReaderSettings({ settings, onChange, onClose }: Props) {
+  const t = useT()
   const isPreset = FONT_PRESETS.some((p) => p.value === settings.fontFamily)
   const [custom, setCustom] = useState(isPreset ? '' : settings.fontFamily)
+  const paginated = settings.flow === 'paginated'
 
   const clampSize = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, n))
   const clampLh = (n: number) => Math.round(Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, n)) * 10) / 10
 
   return (
-    <aside className="panel settings-panel" aria-label="表示設定">
+    <aside className="panel settings-panel" aria-label={t('settings.title')}>
       <div className="panel-head">
-        <span>表示設定</span>
-        <button type="button" onClick={onClose} aria-label="閉じる">
+        <span>{t('settings.title')}</span>
+        <button type="button" onClick={onClose} aria-label={t('close')}>
           ×
         </button>
       </div>
 
       <section>
-        <h3>読み方向</h3>
+        <h3>{t('settings.flow')}</h3>
         <div className="segmented wide" role="group">
           <button
             type="button"
             className={settings.flow === 'paginated' ? 'active' : ''}
             onClick={() => onChange({ flow: 'paginated' })}
           >
-            横読み（ページ送り）
+            {t('flow.paginated')}
           </button>
           <button
             type="button"
             className={settings.flow === 'scrolled' ? 'active' : ''}
             onClick={() => onChange({ flow: 'scrolled' })}
           >
-            縦読み（スクロール）
+            {t('flow.scrolled')}
           </button>
         </div>
       </section>
 
       <section>
-        <h3>ページ</h3>
-        <div className="segmented wide" role="group" aria-disabled={settings.flow !== 'paginated'}>
-          <button
-            type="button"
-            className={settings.spread === 'none' ? 'active' : ''}
-            disabled={settings.flow !== 'paginated'}
-            onClick={() => onChange({ spread: 'none' })}
-          >
-            単ページ
-          </button>
-          <button
-            type="button"
-            className={settings.spread === 'auto' ? 'active' : ''}
-            disabled={settings.flow !== 'paginated'}
-            onClick={() => onChange({ spread: 'auto' })}
-            title="ウィンドウが広いときだけ見開き"
-          >
-            自動
-          </button>
-          <button
-            type="button"
-            className={settings.spread === 'always' ? 'active' : ''}
-            disabled={settings.flow !== 'paginated'}
-            onClick={() => onChange({ spread: 'always' })}
-          >
-            見開き
-          </button>
-        </div>
-        {settings.flow !== 'paginated' && <p className="muted small">見開きは横読み（ページ送り）のときに使えます。</p>}
-      </section>
-
-      <section>
-        <h3>配色</h3>
-        <div className="segmented wide" role="group">
-          {THEMES.map((t) => (
+        <h3>{t('settings.spread')}</h3>
+        <div className="segmented wide" role="group" aria-disabled={!paginated}>
+          {SPREADS.map((s) => (
             <button
               type="button"
-              key={t.value}
-              className={settings.theme === t.value ? 'active' : ''}
-              onClick={() => onChange({ theme: t.value })}
+              key={s.value}
+              className={settings.spread === s.value ? 'active' : ''}
+              disabled={!paginated}
+              onClick={() => onChange({ spread: s.value })}
+              title={s.value === 'auto' ? t('spread.autoHint') : undefined}
             >
-              {t.label}
+              {t(s.key)}
+            </button>
+          ))}
+        </div>
+        {!paginated && <p className="muted small">{t('spread.needsPaginated')}</p>}
+      </section>
+
+      <section>
+        <h3>{t('settings.theme')}</h3>
+        <div className="segmented wide" role="group">
+          {THEMES.map((th) => (
+            <button
+              type="button"
+              key={th.value}
+              className={settings.theme === th.value ? 'active' : ''}
+              onClick={() => onChange({ theme: th.value })}
+            >
+              {t(th.key)}
             </button>
           ))}
         </div>
       </section>
 
       <section>
-        <h3>フォント</h3>
+        <h3>{t('settings.font')}</h3>
         <select
           className="select wide"
           value={isPreset ? settings.fontFamily : '__custom__'}
@@ -116,10 +114,10 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
         >
           {FONT_PRESETS.map((p) => (
             <option key={p.value} value={p.value}>
-              {p.label}
+              {'labelKey' in p ? t(p.labelKey) : p.label}
             </option>
           ))}
-          <option value="__custom__">カスタム…</option>
+          <option value="__custom__">{t('font.custom')}</option>
         </select>
         <form
           className="inline-form"
@@ -130,22 +128,26 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
         >
           <input
             value={custom}
-            placeholder="インストール済みフォント名"
+            placeholder={t('font.customPlaceholder')}
             onChange={(e) => setCustom(e.target.value)}
-            aria-label="カスタムフォント名"
+            aria-label={t('font.customAria')}
           />
           <button type="submit" disabled={!custom.trim()}>
-            適用
+            {t('font.apply')}
           </button>
         </form>
       </section>
 
       <section>
         <h3>
-          文字サイズ <span className="value">{settings.fontSize}px</span>
+          {t('settings.fontSize')} <span className="value">{settings.fontSize}px</span>
         </h3>
         <div className="stepper">
-          <button type="button" onClick={() => onChange({ fontSize: clampSize(settings.fontSize - 1) })} aria-label="小さく">
+          <button
+            type="button"
+            onClick={() => onChange({ fontSize: clampSize(settings.fontSize - 1) })}
+            aria-label={t('fontSize.smaller')}
+          >
             −
           </button>
           <input
@@ -156,7 +158,11 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             value={settings.fontSize}
             onChange={(e) => onChange({ fontSize: clampSize(Number(e.target.value)) })}
           />
-          <button type="button" onClick={() => onChange({ fontSize: clampSize(settings.fontSize + 1) })} aria-label="大きく">
+          <button
+            type="button"
+            onClick={() => onChange({ fontSize: clampSize(settings.fontSize + 1) })}
+            aria-label={t('fontSize.larger')}
+          >
             ＋
           </button>
         </div>
@@ -164,10 +170,14 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
 
       <section>
         <h3>
-          行間 <span className="value">{settings.lineHeight.toFixed(1)}</span>
+          {t('settings.lineHeight')} <span className="value">{settings.lineHeight.toFixed(1)}</span>
         </h3>
         <div className="stepper">
-          <button type="button" onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight - 0.1) })} aria-label="狭く">
+          <button
+            type="button"
+            onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight - 0.1) })}
+            aria-label={t('lineHeight.tighter')}
+          >
             −
           </button>
           <input
@@ -178,10 +188,19 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             value={settings.lineHeight}
             onChange={(e) => onChange({ lineHeight: clampLh(Number(e.target.value)) })}
           />
-          <button type="button" onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight + 0.1) })} aria-label="広く">
+          <button
+            type="button"
+            onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight + 0.1) })}
+            aria-label={t('lineHeight.wider')}
+          >
             ＋
           </button>
         </div>
+      </section>
+
+      <section>
+        <h3>{t('settings.language')}</h3>
+        <LanguageSelect value={settings.language} onChange={(language) => onChange({ language })} className="wide" />
       </section>
     </aside>
   )

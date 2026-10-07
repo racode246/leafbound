@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useT } from '../i18n'
 import { isBrowserMode } from '../lib/api'
 
 interface Props {
@@ -19,6 +20,7 @@ const win = isBrowserMode ? null : getCurrentWindow()
  * data-tauri-drag-region), double-click to maximise, and window controls.
  */
 export default function TitleBar({ left, center, right, bg, fg, border }: Props) {
+  const t = useT()
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
@@ -37,6 +39,8 @@ export default function TitleBar({ left, center, right, bg, fg, border }: Props)
     }
   }, [])
 
+  const maxLabel = maximized ? t('win.restore') : t('win.maximize')
+
   return (
     <div className="titlebar" data-tauri-drag-region style={{ background: bg, color: fg, borderColor: border }}>
       <div className="titlebar-left">{left}</div>
@@ -46,17 +50,12 @@ export default function TitleBar({ left, center, right, bg, fg, border }: Props)
       <div className="titlebar-right">{right}</div>
       {win && (
         <div className="window-controls">
-          <button type="button" aria-label="最小化" title="最小化" onClick={() => void win.minimize()}>
+          <button type="button" aria-label={t('win.minimize')} title={t('win.minimize')} onClick={() => void win.minimize()}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
               <path d="M0 5h10" stroke="currentColor" strokeWidth="1" />
             </svg>
           </button>
-          <button
-            type="button"
-            aria-label={maximized ? '元のサイズに戻す' : '最大化'}
-            title={maximized ? '元のサイズに戻す' : '最大化'}
-            onClick={() => void win.toggleMaximize()}
-          >
+          <button type="button" aria-label={maxLabel} title={maxLabel} onClick={() => void win.toggleMaximize()}>
             {maximized ? (
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
                 <path d="M2.5 0.5h7v7h-2" fill="none" stroke="currentColor" strokeWidth="1" />
@@ -68,7 +67,13 @@ export default function TitleBar({ left, center, right, bg, fg, border }: Props)
               </svg>
             )}
           </button>
-          <button type="button" className="close" aria-label="閉じる" title="閉じる" onClick={() => void win.close()}>
+          <button
+            type="button"
+            className="close"
+            aria-label={t('win.close')}
+            title={t('win.close')}
+            onClick={() => void win.close()}
+          >
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
               <path d="M0.5 0.5l9 9M9.5 0.5l-9 9" stroke="currentColor" strokeWidth="1" />
             </svg>

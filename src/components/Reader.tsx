@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ePub, { type Book as EpubBook, type NavItem, type Rendition } from 'epubjs'
+import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { MIN_SPREAD_WIDTH, type Book, type Progress, type Settings } from '../types'
@@ -22,6 +23,7 @@ interface Location {
 type Panel = 'none' | 'toc' | 'settings'
 
 export default function Reader({ book, settings, onSettings, onBack, onProgress }: Props) {
+  const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const renditionRef = useRef<Rendition | null>(null)
   const bookRef = useRef<EpubBook | null>(null)
@@ -234,8 +236,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         fg={palette.chromeFg}
         border={palette.border}
         left={
-          <button type="button" className="bar-button" onClick={onBack} title="ライブラリへ戻る">
-            ← ライブラリ
+          <button type="button" className="bar-button" onClick={onBack} title={t('reader.backTitle')}>
+            {t('reader.back')}
           </button>
         }
         center={
@@ -256,14 +258,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
               className={`bar-button ${panel === 'toc' ? 'active' : ''}`}
               onClick={() => setPanel(panel === 'toc' ? 'none' : 'toc')}
             >
-              目次
+              {t('reader.toc')}
             </button>
             <button
               type="button"
               className={`bar-button ${panel === 'settings' ? 'active' : ''}`}
               onClick={() => setPanel(panel === 'settings' ? 'none' : 'settings')}
             >
-              Aa 表示
+              {t('reader.display')}
             </button>
           </>
         }
@@ -271,21 +273,21 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
       <div className="reader-body">
         {flow === 'paginated' && (
-          <button type="button" className="edge edge-left" onClick={prev} aria-label="前のページ">
+          <button type="button" className="edge edge-left" onClick={prev} aria-label={t('reader.prev')}>
             ‹
           </button>
         )}
         <div className="reader-view" ref={containerRef} />
         {flow === 'paginated' && (
-          <button type="button" className="edge edge-right" onClick={next} aria-label="次のページ">
+          <button type="button" className="edge edge-right" onClick={next} aria-label={t('reader.next')}>
             ›
           </button>
         )}
 
-        {status === 'loading' && <div className="reader-overlay">読み込み中…</div>}
+        {status === 'loading' && <div className="reader-overlay">{t('reader.loading')}</div>}
         {status === 'error' && (
           <div className="reader-overlay error">
-            <p>この本を開けませんでした。</p>
+            <p>{t('reader.openFailed')}</p>
             <pre>{errorText}</pre>
           </div>
         )}

@@ -4,7 +4,7 @@ export type Unlisten = () => void
 
 export interface LeafboundApi {
   getLibrary(): Promise<Library>
-  pickAndImport(): Promise<ImportOutcome>
+  pickAndImport(dialogTitle: string): Promise<ImportOutcome>
   importPaths(paths: string[]): Promise<ImportOutcome>
   readBook(id: string): Promise<ArrayBuffer>
   saveProgress(id: string, cfi: string, percent: number): Promise<void>

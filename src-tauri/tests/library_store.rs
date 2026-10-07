@@ -42,6 +42,7 @@ fn imports_epub_with_metadata_and_cover() {
     assert_eq!(reloaded.books[0].id, book.id);
     assert!(reloaded.books[0].cover_path.is_some());
     assert_eq!(reloaded.settings.spread, "auto");
+    assert_eq!(reloaded.settings.language, "system");
 
     fs::remove_dir_all(dir).ok();
 }
@@ -126,11 +127,13 @@ fn tracks_progress_categories_and_settings() {
         font_family: "serif".into(),
         font_size: 22,
         line_height: 2.0,
+        language: "en".into(),
     };
     store.save_settings(settings).unwrap();
     let reloaded = LibraryStore::load(dir.clone()).unwrap().snapshot();
     assert_eq!(reloaded.settings.view, "list");
     assert_eq!(reloaded.settings.spread, "always");
+    assert_eq!(reloaded.settings.language, "en");
     assert_eq!(reloaded.settings.font_size, 22);
 
     // Delete removes files and entry.

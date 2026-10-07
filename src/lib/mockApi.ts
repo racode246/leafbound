@@ -15,7 +15,8 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'light',
   fontFamily: 'publisher',
   fontSize: 18,
-  lineHeight: 1.7
+  lineHeight: 1.7,
+  language: 'system'
 }
 
 const now = () => new Date().toISOString()

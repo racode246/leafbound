@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../i18n'
 import type { Book } from '../types'
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function CategoryPicker({ book, categories, x, y, onClose, onCreate, onChange }: Props) {
+  const t = useT()
   const ref = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState('')
 
@@ -49,9 +51,9 @@ export default function CategoryPicker({ book, categories, x, y, onClose, onCrea
   const top = Math.min(y, window.innerHeight - 320)
 
   return (
-    <div className="popover" ref={ref} style={{ left, top }} role="dialog" aria-label="カテゴリを設定">
-      <div className="popover-title">カテゴリ</div>
-      {categories.length === 0 && <p className="muted small">カテゴリがまだありません。</p>}
+    <div className="popover" ref={ref} style={{ left, top }} role="dialog" aria-label={t('picker.aria')}>
+      <div className="popover-title">{t('picker.title')}</div>
+      {categories.length === 0 && <p className="muted small">{t('picker.none')}</p>}
       <ul className="popover-list">
         {categories.map((c) => (
           <li key={c}>
@@ -69,9 +71,9 @@ export default function CategoryPicker({ book, categories, x, y, onClose, onCrea
           void create()
         }}
       >
-        <input value={draft} placeholder="新規カテゴリ" onChange={(e) => setDraft(e.target.value)} />
+        <input value={draft} placeholder={t('picker.new')} onChange={(e) => setDraft(e.target.value)} />
         <button type="submit" disabled={!draft.trim()}>
-          作成
+          {t('picker.create')}
         </button>
       </form>
     </div>

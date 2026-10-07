@@ -1,3 +1,4 @@
+import { useT, type Translate } from '../i18n'
 import type { Book } from '../types'
 import Cover from './Cover'
 
@@ -8,20 +9,21 @@ interface Props {
   onDelete: () => void
 }
 
-export function progressLabel(book: Book): string {
-  if (!book.progress) return '未読'
+export function progressLabel(book: Book, t: Translate): string {
+  if (!book.progress) return t('progress.unread')
   const pct = Math.round(book.progress.percent * 100)
-  return pct >= 100 ? '読了' : `${pct}%`
+  return pct >= 100 ? t('progress.done') : `${pct}%`
 }
 
 export default function BookCard({ book, onOpen, onCategories, onDelete }: Props) {
+  const t = useT()
   const pct = book.progress ? Math.round(book.progress.percent * 100) : 0
   return (
     <article className="card">
       <button type="button" className="card-cover" onClick={onOpen} title={book.title}>
         <Cover book={book} />
         {book.progress && (
-          <span className="card-progress" aria-label={`進捗 ${pct}%`}>
+          <span className="card-progress" aria-label={t('progress.aria', { pct })}>
             <span style={{ width: `${pct}%` }} />
           </span>
         )}
@@ -31,15 +33,15 @@ export default function BookCard({ book, onOpen, onCategories, onDelete }: Props
           {book.title}
         </div>
         <div className="card-author" title={book.author}>
-          {book.author || '著者不明'}
+          {book.author || t('card.unknownAuthor')}
         </div>
         <div className="card-foot">
-          <span className="card-status">{progressLabel(book)}</span>
+          <span className="card-status">{progressLabel(book, t)}</span>
           <span className="card-actions">
-            <button type="button" title="カテゴリ" onClick={(e) => onCategories(e.currentTarget)}>
+            <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
               ⌂
             </button>
-            <button type="button" title="削除" onClick={onDelete}>
+            <button type="button" title={t('card.delete')} onClick={onDelete}>
               🗑
             </button>
           </span>

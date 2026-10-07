@@ -11,10 +11,10 @@ const NOTHING: ImportOutcome = { added: [], duplicates: [], failed: [] }
 const tauriApi: LeafboundApi = {
   getLibrary: () => invoke<Library>('get_library'),
 
-  async pickAndImport(): Promise<ImportOutcome> {
+  async pickAndImport(dialogTitle: string): Promise<ImportOutcome> {
     const selected = await open({
       multiple: true,
-      title: 'EPUB を追加',
+      title: dialogTitle,
       filters: [{ name: 'EPUB', extensions: ['epub'] }]
     })
     if (!selected) return NOTHING

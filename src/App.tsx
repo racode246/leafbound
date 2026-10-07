@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { I18nProvider, resolveLang, useT } from './i18n'
 import { api } from './lib/api'
 import type { Book, ImportOutcome, Library, Settings } from './types'
 import LibraryView from './components/LibraryView'
@@ -8,31 +9,51 @@ type Route = { kind: 'library' } | { kind: 'reader'; bookId: string }
 
 export default function App() {
   const [library, setLibrary] = useState<Library | null>(null)
+  const lang = resolveLang(library?.settings.language)
+  return (
+    <I18nProvider lang={lang}>
+      <Shell library={library} setLibrary={setLibrary} />
+    </I18nProvider>
+  )
+}
+
+interface ShellProps {
+  library: Library | null
+  setLibrary: React.Dispatch<React.SetStateAction<Library | null>>
+}
+
+function Shell({ library, setLibrary }: ShellProps) {
+  const t = useT()
   const [route, setRoute] = useState<Route>({ kind: 'library' })
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const libraryRef = useRef<Library | null>(null)
   libraryRef.current = library
+  const tRef = useRef(t)
+  tRef.current = t
 
-  const applyOutcome = useCallback((outcome: ImportOutcome) => {
-    if (outcome.added.length > 0) {
-      setLibrary((prev) => {
-        if (!prev) return prev
-        const known = new Set(prev.books.map((b) => b.id))
-        const fresh = outcome.added.filter((b) => !known.has(b.id))
-        return fresh.length > 0 ? { ...prev, books: [...prev.books, ...fresh] } : prev
-      })
-    }
-    const messages: string[] = []
-    if (outcome.duplicates.length > 0) {
-      messages.push(`すでに追加済みのためスキップしました: ${outcome.duplicates.join('、')}`)
-    }
-    if (outcome.failed.length > 0) {
-      messages.push(`取り込めませんでした: ${outcome.failed.join('、')}`)
-    }
-    setNotice(messages.length > 0 ? messages.join('\n') : null)
-  }, [])
+  const applyOutcome = useCallback(
+    (outcome: ImportOutcome) => {
+      if (outcome.added.length > 0) {
+        setLibrary((prev) => {
+          if (!prev) return prev
+          const known = new Set(prev.books.map((b) => b.id))
+          const fresh = outcome.added.filter((b) => !known.has(b.id))
+          return fresh.length > 0 ? { ...prev, books: [...prev.books, ...fresh] } : prev
+        })
+      }
+      const messages: string[] = []
+      if (outcome.duplicates.length > 0) {
+        messages.push(tRef.current('notice.duplicates', { names: outcome.duplicates.join(', ') }))
+      }
+      if (outcome.failed.length > 0) {
+        messages.push(tRef.current('notice.failed', { names: outcome.failed.join(', ') }))
+      }
+      setNotice(messages.length > 0 ? messages.join('\n') : null)
+    },
+    [setLibrary]
+  )
 
   const importPaths = useCallback(
     async (paths: string[]) => {
@@ -84,24 +105,27 @@ export default function App() {
       disposed = true
       unlisteners.forEach((un) => un())
     }
-  }, [importPaths])
+  }, [importPaths, setLibrary])
 
-  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
-    const current = libraryRef.current
-    if (!current) return
-    const next = { ...current.settings, ...patch }
-    setLibrary({ ...current, settings: next })
-    try {
-      await api.saveSettings(next)
-    } catch (err) {
-      setError(String(err))
-    }
-  }, [])
+  const updateSettings = useCallback(
+    async (patch: Partial<Settings>) => {
+      const current = libraryRef.current
+      if (!current) return
+      const next = { ...current.settings, ...patch }
+      setLibrary({ ...current, settings: next })
+      try {
+        await api.saveSettings(next)
+      } catch (err) {
+        setError(String(err))
+      }
+    },
+    [setLibrary]
+  )
 
   const handleImport = useCallback(async () => {
     setImporting(true)
     try {
-      applyOutcome(await api.pickAndImport())
+      applyOutcome(await api.pickAndImport(tRef.current('dialog.addEpub')))
     } catch (err) {
       setError(String(err))
     } finally {
@@ -109,14 +133,17 @@ export default function App() {
     }
   }, [applyOutcome])
 
-  const replaceBook = useCallback((book: Book) => {
-    setLibrary((prev) =>
-      prev ? { ...prev, books: prev.books.map((b) => (b.id === book.id ? book : b)) } : prev
-    )
-  }, [])
+  const replaceBook = useCallback(
+    (book: Book) => {
+      setLibrary((prev) =>
+        prev ? { ...prev, books: prev.books.map((b) => (b.id === book.id ? book : b)) } : prev
+      )
+    },
+    [setLibrary]
+  )
 
   if (!library) {
-    return <div className="boot">{error ? <p className="error">{error}</p> : 'ライブラリを読み込み中…'}</div>
+    return <div className="boot">{error ? <p className="error">{error}</p> : t('boot.loading')}</div>
   }
 
   if (route.kind === 'reader') {

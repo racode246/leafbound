@@ -37,6 +37,10 @@ fn default_spread() -> String {
     "auto".into()
 }
 
+fn default_language() -> String {
+    "system".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -48,6 +52,9 @@ pub struct Settings {
     pub font_family: String,
     pub font_size: u32,
     pub line_height: f64,
+    /// "system" | "ja" | "en"
+    #[serde(default = "default_language")]
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -60,6 +67,7 @@ impl Default for Settings {
             font_family: "publisher".into(),
             font_size: 18,
             line_height: 1.7,
+            language: default_language(),
         }
     }
 }

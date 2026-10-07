@@ -1,4 +1,5 @@
 import type { NavItem } from 'epubjs'
+import { useT } from '../i18n'
 
 interface Props {
   toc: NavItem[]
@@ -29,15 +30,20 @@ function Items({ items, depth, onNavigate }: { items: NavItem[]; depth: number; 
 }
 
 export default function TocPanel({ toc, onNavigate, onClose }: Props) {
+  const t = useT()
   return (
-    <aside className="panel toc-panel" aria-label="目次">
+    <aside className="panel toc-panel" aria-label={t('toc.title')}>
       <div className="panel-head">
-        <span>目次</span>
-        <button type="button" onClick={onClose} aria-label="閉じる">
+        <span>{t('toc.title')}</span>
+        <button type="button" onClick={onClose} aria-label={t('close')}>
           ×
         </button>
       </div>
-      {toc.length === 0 ? <p className="muted small">目次がありません。</p> : <Items items={toc} depth={0} onNavigate={onNavigate} />}
+      {toc.length === 0 ? (
+        <p className="muted small">{t('toc.empty')}</p>
+      ) : (
+        <Items items={toc} depth={0} onNavigate={onNavigate} />
+      )}
     </aside>
   )
 }

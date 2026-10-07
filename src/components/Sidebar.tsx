@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { ALL_BOOKS, UNCATEGORIZED } from '../types'
+import { useT } from '../i18n'
+import { ALL_BOOKS, UNCATEGORIZED, type LanguageSetting } from '../types'
+import LanguageSelect from './LanguageSelect'
 
 interface Props {
   categories: string[]
@@ -7,10 +9,12 @@ interface Props {
   total: number
   uncategorized: number
   selected: string
+  language: LanguageSetting
   onSelect: (key: string) => void
   onAdd: (name: string) => Promise<string[]>
   onRename: (from: string, to: string) => Promise<void>
   onRemove: (name: string) => Promise<void>
+  onLanguage: (value: LanguageSetting) => void
 }
 
 export default function Sidebar({
@@ -19,11 +23,14 @@ export default function Sidebar({
   total,
   uncategorized,
   selected,
+  language,
   onSelect,
   onAdd,
   onRename,
-  onRemove
+  onRemove,
+  onLanguage
 }: Props) {
+  const t = useT()
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<{ name: string; value: string } | null>(null)
 
@@ -57,11 +64,11 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <ul className="nav">
-        {item(ALL_BOOKS, 'すべての本', total)}
-        {item(UNCATEGORIZED, '未分類', uncategorized)}
+        {item(ALL_BOOKS, t('lib.all'), total)}
+        {item(UNCATEGORIZED, t('lib.uncategorized'), uncategorized)}
       </ul>
 
-      <h2 className="sidebar-heading">カテゴリ</h2>
+      <h2 className="sidebar-heading">{t('lib.categories')}</h2>
       <ul className="nav">
         {categories.map((c) =>
           editing?.name === c ? (
@@ -84,7 +91,7 @@ export default function Sidebar({
                 className={`nav-item ${selected === c ? 'active' : ''}`}
                 onClick={() => onSelect(c)}
                 onDoubleClick={() => setEditing({ name: c, value: c })}
-                title="ダブルクリックで名前を変更"
+                title={t('lib.renameHint')}
               >
                 <span className="nav-label">{c}</span>
                 <span className="nav-count">{counts.get(c) ?? 0}</span>
@@ -92,8 +99,8 @@ export default function Sidebar({
               <button
                 type="button"
                 className="nav-remove"
-                title="カテゴリを削除"
-                aria-label={`${c} を削除`}
+                title={t('lib.removeCategory')}
+                aria-label={t('lib.removeCategoryAria', { name: c })}
                 onClick={() => void onRemove(c)}
               >
                 ×
@@ -112,14 +119,18 @@ export default function Sidebar({
       >
         <input
           value={draft}
-          placeholder="新しいカテゴリ"
+          placeholder={t('lib.newCategory')}
           onChange={(e) => setDraft(e.target.value)}
-          aria-label="新しいカテゴリ名"
+          aria-label={t('lib.newCategoryAria')}
         />
         <button type="submit" disabled={!draft.trim()}>
-          追加
+          {t('lib.add')}
         </button>
       </form>
+
+      <div className="sidebar-foot">
+        <LanguageSelect value={language} onChange={onLanguage} className="wide" />
+      </div>
     </aside>
   )
 }

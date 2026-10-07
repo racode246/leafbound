@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import type { Book } from '../types'
 import Cover from './Cover'
 import { progressLabel } from './BookCard'
@@ -10,7 +11,9 @@ interface Props {
 }
 
 export default function BookRow({ book, onOpen, onCategories, onDelete }: Props) {
+  const t = useT()
   const pct = book.progress ? Math.round(book.progress.percent * 100) : 0
+  const label = progressLabel(book, t)
   return (
     <tr className="row">
       <td className="col-cover">
@@ -25,21 +28,29 @@ export default function BookRow({ book, onOpen, onCategories, onDelete }: Props)
       </td>
       <td className="row-author">{book.author || '—'}</td>
       <td className="row-cats">
-        {book.categories.length === 0 ? <span className="muted">未分類</span> : book.categories.map((c) => <span key={c} className="chip">{c}</span>)}
+        {book.categories.length === 0 ? (
+          <span className="muted">{t('lib.uncategorized')}</span>
+        ) : (
+          book.categories.map((c) => (
+            <span key={c} className="chip">
+              {c}
+            </span>
+          ))
+        )}
       </td>
       <td className="col-progress">
-        <div className="row-progress" title={progressLabel(book)}>
+        <div className="row-progress" title={label}>
           <span className="bar">
             <span style={{ width: `${pct}%` }} />
           </span>
-          <span className="pct">{progressLabel(book)}</span>
+          <span className="pct">{label}</span>
         </div>
       </td>
       <td className="col-actions">
-        <button type="button" title="カテゴリ" onClick={(e) => onCategories(e.currentTarget)}>
+        <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
           ⌂
         </button>
-        <button type="button" title="削除" onClick={onDelete}>
+        <button type="button" title={t('card.delete')} onClick={onDelete}>
           🗑
         </button>
       </td>

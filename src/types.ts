@@ -23,6 +23,8 @@ export interface Book {
   coverPath: string | null
 }
 
+export type LanguageSetting = 'system' | 'ja' | 'en'
+
 export interface Settings {
   view: ViewMode
   flow: Flow
@@ -31,6 +33,7 @@ export interface Settings {
   fontFamily: string
   fontSize: number
   lineHeight: number
+  language: LanguageSetting
 }
 
 export interface Library {
@@ -52,13 +55,22 @@ export const MIN_SPREAD_WIDTH = 900
 
 export const PUBLISHER_FONT = 'publisher'
 
-export const FONT_PRESETS: { label: string; value: string }[] = [
-  { label: '出版社の指定', value: PUBLISHER_FONT },
-  { label: '明朝 (serif)', value: 'serif' },
-  { label: 'ゴシック (sans-serif)', value: 'sans-serif' },
-  { label: '游明朝', value: '"Yu Mincho", YuMincho, serif' },
-  { label: '游ゴシック', value: '"Yu Gothic", YuGothic, sans-serif' },
-  { label: 'メイリオ', value: 'Meiryo, sans-serif' },
+/**
+ * Font presets. `labelKey` entries are translated; `label` entries are
+ * proper names shown as-is.
+ */
+export type FontPreset = { value: string } & (
+  | { labelKey: 'font.publisher' | 'font.serif' | 'font.sans' }
+  | { label: string }
+)
+
+export const FONT_PRESETS: FontPreset[] = [
+  { labelKey: 'font.publisher', value: PUBLISHER_FONT },
+  { labelKey: 'font.serif', value: 'serif' },
+  { labelKey: 'font.sans', value: 'sans-serif' },
+  { label: '游明朝 / Yu Mincho', value: '"Yu Mincho", YuMincho, serif' },
+  { label: '游ゴシック / Yu Gothic', value: '"Yu Gothic", YuGothic, sans-serif' },
+  { label: 'メイリオ / Meiryo', value: 'Meiryo, sans-serif' },
   { label: 'BIZ UDP明朝', value: '"BIZ UDPMincho", serif' },
   { label: 'BIZ UDPゴシック', value: '"BIZ UDPGothic", sans-serif' },
   { label: 'Georgia', value: 'Georgia, serif' },
