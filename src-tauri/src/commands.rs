@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use tauri::ipc::Response;
+use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::State;
 
 use crate::library::{Annotation, Book, Import, ImportOutcome, Library, Settings};
@@ -37,6 +37,50 @@ pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<Import
         }
     }
     Ok(outcome)
+}
+
+/// Imports one EPUB sent as a raw request body. The file name travels in the
+/// `x-file-name` header (percent-encoded) because HTML5 drops carry no path.
+#[tauri::command]
+pub async fn import_book_bytes(state: Store<'_>, request: Request<'_>) -> Result<ImportOutcome, String> {
+    let name = request
+        .headers()
+        .get("x-file-name")
+        .and_then(|v| v.to_str().ok())
+        .map(percent_decode)
+        .unwrap_or_else(|| "book.epub".to_string());
+    let bytes: &[u8] = match request.body() {
+        InvokeBody::Raw(bytes) => bytes,
+        InvokeBody::Json(_) => return Err("expected a binary body".into()),
+    };
+    let mut outcome = ImportOutcome::default();
+    match lock(&state).import_bytes(&name, bytes) {
+        Ok(Import::Added(book)) => outcome.added.push(book),
+        Ok(Import::Duplicate(_)) => outcome.duplicates.push(name),
+        Err(err) => {
+            eprintln!("import failed for {name}: {err}");
+            outcome.failed.push(name);
+        }
+    }
+    Ok(outcome)
+}
+
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| s.to_string())
 }
 
 #[tauri::command]

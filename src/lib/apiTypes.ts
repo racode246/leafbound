@@ -3,15 +3,17 @@ import type { Annotation, Book, ImportOutcome, Library, Settings } from '../type
 export type Unlisten = () => void
 
 export type DragDropEvent =
-  | { type: 'enter'; paths: string[] }
+  | { type: 'enter' }
   | { type: 'over' }
-  | { type: 'drop'; paths: string[] }
+  | { type: 'drop'; files: File[] }
   | { type: 'leave' }
 
 export interface LeafboundApi {
   getLibrary(): Promise<Library>
   pickAndImport(dialogTitle: string): Promise<ImportOutcome>
   importPaths(paths: string[]): Promise<ImportOutcome>
+  /** Imports dropped files by content (HTML5 drag and drop has no OS paths). */
+  importFiles(files: File[]): Promise<ImportOutcome>
   readBook(id: string): Promise<ArrayBuffer>
   saveProgress(id: string, cfi: string, percent: number): Promise<void>
   setBookCategories(id: string, categories: string[]): Promise<Book>

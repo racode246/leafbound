@@ -112,6 +112,25 @@ fn stores_annotations_per_book() {
 }
 
 #[test]
+fn imports_from_bytes() {
+    let dir = temp_dir("bytes");
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    let bytes = fs::read(fixture()).unwrap();
+
+    let book = added(store.import_bytes("Dropped Book.epub", &bytes).unwrap());
+    assert_eq!(book.file_name, "Dropped Book.epub");
+    assert_eq!(book.title, "Leafbound サンプル");
+    assert!(store.book_path(&book.id).exists());
+
+    // Same bytes again are a duplicate; wrong extension is rejected.
+    assert!(matches!(store.import_bytes("again.epub", &bytes).unwrap(), Import::Duplicate(_)));
+    assert!(store.import_bytes("notes.txt", &bytes).is_err());
+    assert_eq!(store.snapshot().books.len(), 1);
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
 fn rejects_non_epub_files() {
     let dir = temp_dir("reject");
     let mut store = LibraryStore::load(dir.clone()).unwrap();

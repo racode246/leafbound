@@ -298,6 +298,23 @@ impl LibraryStore {
         Ok(Import::Added(self.with_cover(&book)))
     }
 
+    /// Imports an EPUB from in-memory bytes (used for HTML5 drag and drop,
+    /// where the webview only exposes file contents, not paths).
+    pub fn import_bytes(&mut self, file_name: &str, bytes: &[u8]) -> Result<Import, String> {
+        let safe_name = Path::new(file_name)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .filter(|n| n.to_ascii_lowercase().ends_with(".epub"))
+            .ok_or_else(|| format!("not an EPUB file: {file_name}"))?;
+        let staging = std::env::temp_dir().join(format!("leafbound-import-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&staging).map_err(|e| format!("staging failed: {e}"))?;
+        let tmp = staging.join(&safe_name);
+        fs::write(&tmp, bytes).map_err(|e| format!("staging write failed: {e}"))?;
+        let result = self.import_file(&tmp);
+        let _ = fs::remove_dir_all(&staging);
+        result
+    }
+
     pub fn read_book(&self, id: &str) -> Result<Vec<u8>, String> {
         if !self.data.books.iter().any(|b| b.id == id) {
             return Err(format!("unknown book: {id}"));

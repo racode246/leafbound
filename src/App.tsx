@@ -76,6 +76,26 @@ function Shell({ library, setLibrary }: ShellProps) {
     [applyOutcome]
   )
 
+  const importFiles = useCallback(
+    async (files: File[]) => {
+      const epubs = files.filter((f) => f.name.toLowerCase().endsWith('.epub'))
+      if (epubs.length === 0) return
+      setImporting(true)
+      try {
+        const outcome = await api.importFiles(epubs)
+        applyOutcome(outcome)
+        if (outcome.added.length === 1 && epubs.length === 1) {
+          setRoute({ kind: 'reader', bookId: outcome.added[0].id })
+        }
+      } catch (err) {
+        setError(String(err))
+      } finally {
+        setImporting(false)
+      }
+    },
+    [applyOutcome]
+  )
+
   useEffect(() => {
     let disposed = false
     const unlisteners: Array<() => void> = []
@@ -108,7 +128,7 @@ function Shell({ library, setLibrary }: ShellProps) {
       .onDragDrop((event) => {
         if (event.type === 'enter' || event.type === 'over') setDragging(true)
         else setDragging(false)
-        if (event.type === 'drop') void importPaths(event.paths)
+        if (event.type === 'drop') void importFiles(event.files)
       })
       .then(keep)
       .catch(failed('drag-drop listener'))
@@ -117,7 +137,7 @@ function Shell({ library, setLibrary }: ShellProps) {
       disposed = true
       unlisteners.forEach((un) => un())
     }
-  }, [importPaths, setLibrary])
+  }, [importPaths, importFiles, setLibrary])
 
   const updateSettings = useCallback(
     async (patch: Partial<Settings>) => {

@@ -1,12 +1,20 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { Annotation, Book, ImportOutcome, Library, Settings } from '../types'
 import type { LeafboundApi } from './apiTypes'
+import { isEpubFile, listenHtml5DragDrop } from './dragDrop'
 import { mockApi } from './mockApi'
 
 const NOTHING: ImportOutcome = { added: [], duplicates: [], failed: [] }
+
+function mergeOutcome(into: ImportOutcome, from: ImportOutcome): ImportOutcome {
+  return {
+    added: [...into.added, ...from.added],
+    duplicates: [...into.duplicates, ...from.duplicates],
+    failed: [...into.failed, ...from.failed]
+  }
+}
 
 const tauriApi: LeafboundApi = {
   getLibrary: () => invoke<Library>('get_library'),
@@ -23,6 +31,24 @@ const tauriApi: LeafboundApi = {
   },
 
   importPaths: (paths) => invoke<ImportOutcome>('import_books', { paths }),
+
+  async importFiles(files) {
+    let outcome = NOTHING
+    for (const file of files) {
+      if (!isEpubFile(file)) continue
+      try {
+        const bytes = await file.arrayBuffer()
+        const one = await invoke<ImportOutcome>('import_book_bytes', bytes, {
+          headers: { 'x-file-name': encodeURIComponent(file.name) }
+        })
+        outcome = mergeOutcome(outcome, one)
+      } catch (err) {
+        console.error('importFiles', file.name, err)
+        outcome = mergeOutcome(outcome, { added: [], duplicates: [], failed: [file.name] })
+      }
+    }
+    return outcome
+  },
   readBook: (id) => invoke<ArrayBuffer>('read_book', { id }),
   saveProgress: (id, cfi, percent) => invoke<void>('save_progress', { id, cfi, percent }),
   setBookCategories: (id, categories) => invoke<Book>('set_book_categories', { id, categories }),
@@ -37,24 +63,7 @@ const tauriApi: LeafboundApi = {
 
   onOpenFiles: (cb) => listen<string[]>('open-files', (event) => cb(event.payload)),
 
-  onDragDrop: (cb) =>
-    getCurrentWebview().onDragDropEvent((event) => {
-      const p = event.payload
-      switch (p.type) {
-        case 'enter':
-          cb({ type: 'enter', paths: p.paths })
-          break
-        case 'over':
-          cb({ type: 'over' })
-          break
-        case 'drop':
-          cb({ type: 'drop', paths: p.paths })
-          break
-        case 'leave':
-          cb({ type: 'leave' })
-          break
-      }
-    }),
+  onDragDrop: async (cb) => listenHtml5DragDrop(cb),
 
   // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs
   coverUrl: (book) => (book.hasCover ? convertFileSrc(book.id, 'lbcover') : null)
