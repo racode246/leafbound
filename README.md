@@ -18,7 +18,9 @@ Built with [Tauri 2](https://tauri.app/) (Rust) + React + TypeScript + [epub.js]
 - 見開き表示(単ページ / 自動 / 見開き)
 - 白 / セピア / 黒の配色
 - UI 言語: 日本語 / English(既定はシステム言語に従う)
-- 目次ジャンプ、検索、並び替え
+- 目次ジャンプ、ライブラリの検索、並び替え
+- 本文内検索(Ctrl+F)
+- ハイライト(4 色)とメモ。選択した文字から追加し、一覧からジャンプ
 - エクスプローラーからの `.epub` ドラッグ＆ドロップ、ダブルクリックで開く(ファイル関連付け)
 
 ## Development / 開発
@@ -54,6 +56,7 @@ sample book pre-loaded, which is handy for UI work. Nothing is persisted there.
 - `library.json` – books, categories, reading progress, settings
 - `books\` – imported EPUB copies
 - `covers\` – extracted cover images
+- `annotations\` – highlights and notes, one JSON file per book
 
 Deleting a book from the library also deletes its copy. Original files are never touched.
 
@@ -67,10 +70,9 @@ scripts/        Icon generator
 
 ## Roadmap
 
-- 縦書き(writing-mode: vertical-rl)のサポート
-- 本文内検索
-- ハイライトとメモ
 - 複数ウィンドウ
+
+縦書きの EPUB は、出版社の指定(`writing-mode: vertical-rl`)をそのまま表示します。
 
 ## License
 

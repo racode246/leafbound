@@ -42,6 +42,32 @@ export interface Library {
   settings: Settings
 }
 
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink'
+
+export interface Annotation {
+  id: string
+  cfiRange: string
+  text: string
+  note: string
+  color: HighlightColor
+  createdAt: string
+  updatedAt: string
+}
+
+export const HIGHLIGHT_COLORS: Record<HighlightColor, string> = {
+  yellow: '#ffd84d',
+  green: '#8fe08f',
+  blue: '#8fcbff',
+  pink: '#ffa8c5'
+}
+
+export interface SearchHit {
+  cfi: string
+  excerpt: string
+  sectionIndex: number
+  href: string
+}
+
 export interface ImportOutcome {
   added: Book[]
   /** File names that were skipped because the same book is already in the library. */

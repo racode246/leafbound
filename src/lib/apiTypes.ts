@@ -1,4 +1,4 @@
-import type { Book, ImportOutcome, Library, Settings } from '../types'
+import type { Annotation, Book, ImportOutcome, Library, Settings } from '../types'
 
 export type Unlisten = () => void
 
@@ -14,6 +14,8 @@ export interface LeafboundApi {
   renameCategory(from: string, to: string): Promise<Library>
   removeCategory(name: string): Promise<Library>
   saveSettings(settings: Settings): Promise<Settings>
+  getAnnotations(id: string): Promise<Annotation[]>
+  saveAnnotations(id: string, annotations: Annotation[]): Promise<void>
   takePendingOpenFiles(): Promise<string[]>
   onOpenFiles(cb: (paths: string[]) => void): Promise<Unlisten>
   onDragDrop(cb: (paths: string[]) => void): Promise<Unlisten>

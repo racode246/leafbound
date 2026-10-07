@@ -72,6 +72,22 @@ impl Default for Settings {
     }
 }
 
+/// A highlighted passage with an optional note, stored per book in
+/// `annotations/<book id>.json`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Annotation {
+    pub id: String,
+    pub cfi_range: String,
+    pub text: String,
+    #[serde(default)]
+    pub note: String,
+    pub color: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
 /// Result of importing one file.
 #[derive(Debug)]
 pub enum Import {
@@ -113,6 +129,7 @@ struct Persisted {
 pub struct LibraryStore {
     books_dir: PathBuf,
     covers_dir: PathBuf,
+    annotations_dir: PathBuf,
     file: PathBuf,
     data: Persisted,
 }
@@ -125,14 +142,16 @@ impl LibraryStore {
     pub fn load(data_dir: PathBuf) -> io::Result<Self> {
         let books_dir = data_dir.join("books");
         let covers_dir = data_dir.join("covers");
+        let annotations_dir = data_dir.join("annotations");
         fs::create_dir_all(&books_dir)?;
         fs::create_dir_all(&covers_dir)?;
+        fs::create_dir_all(&annotations_dir)?;
         let file = data_dir.join("library.json");
         let data = match fs::read_to_string(&file) {
             Ok(raw) => serde_json::from_str::<Persisted>(&raw).unwrap_or_default(),
             Err(_) => Persisted::default(),
         };
-        let mut store = Self { books_dir, covers_dir, file, data };
+        let mut store = Self { books_dir, covers_dir, annotations_dir, file, data };
         store.backfill_hashes();
         Ok(store)
     }
@@ -174,6 +193,36 @@ impl LibraryStore {
 
     pub fn cover_path(&self, id: &str) -> PathBuf {
         self.covers_dir.join(format!("{id}.img"))
+    }
+
+    pub fn annotations_path(&self, id: &str) -> PathBuf {
+        self.annotations_dir.join(format!("{id}.json"))
+    }
+
+    pub fn load_annotations(&self, id: &str) -> Result<Vec<Annotation>, String> {
+        if !self.data.books.iter().any(|b| b.id == id) {
+            return Err(format!("unknown book: {id}"));
+        }
+        match fs::read_to_string(self.annotations_path(id)) {
+            Ok(raw) => serde_json::from_str(&raw).map_err(|e| format!("annotations unreadable: {e}")),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
+            Err(e) => Err(format!("read failed: {e}")),
+        }
+    }
+
+    pub fn save_annotations(&self, id: &str, annotations: &[Annotation]) -> Result<(), String> {
+        if !self.data.books.iter().any(|b| b.id == id) {
+            return Err(format!("unknown book: {id}"));
+        }
+        let path = self.annotations_path(id);
+        if annotations.is_empty() {
+            let _ = fs::remove_file(&path);
+            return Ok(());
+        }
+        let payload = serde_json::to_string_pretty(annotations).map_err(|e| e.to_string())?;
+        let tmp = path.with_extension("json.tmp");
+        fs::write(&tmp, payload).map_err(|e| format!("write failed: {e}"))?;
+        fs::rename(&tmp, &path).map_err(|e| format!("rename failed: {e}"))
     }
 
     fn with_cover(&self, book: &Book) -> Book {
@@ -279,6 +328,7 @@ impl LibraryStore {
         self.save()?;
         let _ = fs::remove_file(self.book_path(id));
         let _ = fs::remove_file(self.cover_path(id));
+        let _ = fs::remove_file(self.annotations_path(id));
         Ok(())
     }
 

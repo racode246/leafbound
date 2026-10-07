@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use leafbound_lib::library::{Import, LibraryStore, Settings};
+use leafbound_lib::library::{Annotation, Import, LibraryStore, Settings};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample.epub")
@@ -69,6 +69,44 @@ fn detects_duplicate_imports_by_content() {
     fs::write(&other, bytes).unwrap();
     assert!(matches!(store.import_file(&other).unwrap(), Import::Added(_)));
     assert_eq!(store.snapshot().books.len(), 2);
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn stores_annotations_per_book() {
+    let dir = temp_dir("notes");
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    let book = added(store.import_file(&fixture()).unwrap());
+
+    assert!(store.load_annotations(&book.id).unwrap().is_empty());
+    assert!(store.load_annotations("nope").is_err());
+
+    let note = Annotation {
+        id: "a1".into(),
+        cfi_range: "epubcfi(/6/4!/4/2,/1:0,/1:10)".into(),
+        text: "吾輩は猫である".into(),
+        note: "冒頭".into(),
+        color: "yellow".into(),
+        created_at: "2026-10-07T00:00:00Z".into(),
+        updated_at: "2026-10-07T00:00:00Z".into(),
+    };
+    store.save_annotations(&book.id, &[note.clone()]).unwrap();
+    assert!(store.annotations_path(&book.id).exists());
+
+    let reloaded = LibraryStore::load(dir.clone()).unwrap();
+    let list = reloaded.load_annotations(&book.id).unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].id, "a1");
+    assert_eq!(list[0].note, "冒頭");
+
+    // Saving an empty list removes the file; deleting the book removes it too.
+    store.save_annotations(&book.id, &[]).unwrap();
+    assert!(!store.annotations_path(&book.id).exists());
+    store.save_annotations(&book.id, &[note]).unwrap();
+    let path = store.annotations_path(&book.id);
+    store.delete_book(&book.id).unwrap();
+    assert!(!path.exists());
 
     fs::remove_dir_all(dir).ok();
 }

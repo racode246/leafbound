@@ -5,7 +5,7 @@
  * without Tauri), so the UI can be exercised without the native shell.
  * State lives in memory only; the sample book from /public is pre-loaded.
  */
-import type { Book, Library, Settings } from '../types'
+import type { Annotation, Book, Library, Settings } from '../types'
 import type { LeafboundApi } from './apiTypes'
 
 const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +39,8 @@ const state: Library = { books: [sample], categories: [], settings: { ...DEFAULT
 const files = new Map<string, () => Promise<ArrayBuffer>>([
   ['sample', () => fetch('/sample.epub').then((r) => r.arrayBuffer())]
 ])
+
+const annotations = new Map<string, Annotation[]>()
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 const find = (id: string): Book => {
@@ -127,6 +129,10 @@ export const mockApi: LeafboundApi = {
   saveSettings: async (settings) => {
     state.settings = { ...settings }
     return clone(state.settings)
+  },
+  getAnnotations: async (id) => clone(annotations.get(id) ?? []),
+  saveAnnotations: async (id, list) => {
+    annotations.set(id, clone(list))
   },
   takePendingOpenFiles: async () => [],
   onOpenFiles: async () => () => {},

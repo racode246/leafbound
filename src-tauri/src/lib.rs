@@ -54,6 +54,8 @@ pub fn run() {
             commands::rename_category,
             commands::remove_category,
             commands::save_settings,
+            commands::get_annotations,
+            commands::save_annotations,
             commands::take_pending_open_files,
         ])
         .run(tauri::generate_context!())

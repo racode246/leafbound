@@ -2,7 +2,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { Book, ImportOutcome, Library, Settings } from '../types'
+import type { Annotation, Book, ImportOutcome, Library, Settings } from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { mockApi } from './mockApi'
 
@@ -31,6 +31,8 @@ const tauriApi: LeafboundApi = {
   renameCategory: (from, to) => invoke<Library>('rename_category', { from, to }),
   removeCategory: (name) => invoke<Library>('remove_category', { name }),
   saveSettings: (settings: Settings) => invoke<Settings>('save_settings', { settings }),
+  getAnnotations: (id) => invoke<Annotation[]>('get_annotations', { id }),
+  saveAnnotations: (id, annotations) => invoke<void>('save_annotations', { id, annotations }),
   takePendingOpenFiles: () => invoke<string[]>('take_pending_open_files'),
 
   onOpenFiles: (cb) => listen<string[]>('open-files', (event) => cb(event.payload)),

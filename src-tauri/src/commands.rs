@@ -3,7 +3,7 @@ use std::path::Path;
 use tauri::ipc::Response;
 use tauri::State;
 
-use crate::library::{Book, Import, ImportOutcome, Library, Settings};
+use crate::library::{Annotation, Book, Import, ImportOutcome, Library, Settings};
 use crate::{AppState, PendingOpen};
 
 type Store<'a> = State<'a, AppState>;
@@ -78,6 +78,16 @@ pub fn remove_category(state: Store<'_>, name: String) -> Result<Library, String
 #[tauri::command]
 pub fn save_settings(state: Store<'_>, settings: Settings) -> Result<Settings, String> {
     lock(&state).save_settings(settings)
+}
+
+#[tauri::command]
+pub fn get_annotations(state: Store<'_>, id: String) -> Result<Vec<Annotation>, String> {
+    lock(&state).load_annotations(&id)
+}
+
+#[tauri::command]
+pub fn save_annotations(state: Store<'_>, id: String, annotations: Vec<Annotation>) -> Result<(), String> {
+    lock(&state).save_annotations(&id, &annotations)
 }
 
 #[tauri::command]
