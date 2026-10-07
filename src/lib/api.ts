@@ -19,15 +19,14 @@ function mergeOutcome(into: ImportOutcome, from: ImportOutcome): ImportOutcome {
 const tauriApi: LeafboundApi = {
   getLibrary: () => invoke<Library>('get_library'),
 
-  async pickAndImport(dialogTitle: string): Promise<ImportOutcome> {
+  async pickFiles(dialogTitle: string): Promise<string[]> {
     const selected = await open({
       multiple: true,
       title: dialogTitle,
       filters: [{ name: 'EPUB', extensions: ['epub'] }]
     })
-    if (!selected) return NOTHING
-    const paths = Array.isArray(selected) ? selected : [selected]
-    return invoke<ImportOutcome>('import_books', { paths })
+    if (!selected) return []
+    return Array.isArray(selected) ? selected : [selected]
   },
 
   importPaths: (paths) => invoke<ImportOutcome>('import_books', { paths }),

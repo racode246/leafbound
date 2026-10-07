@@ -10,7 +10,7 @@ import TitleBar from './TitleBar'
 
 interface Props {
   library: Library
-  importing: boolean
+  importProgress: { done: number; total: number } | null
   error: string | null
   notice: string | null
   onDismissError: () => void
@@ -26,7 +26,7 @@ type SortKey = 'recent' | 'added' | 'title' | 'author'
 
 export default function LibraryView({
   library,
-  importing,
+  importProgress,
   error,
   notice,
   onDismissError,
@@ -187,8 +187,10 @@ export default function LibraryView({
                 ☰
               </button>
             </div>
-            <button type="button" className="primary" onClick={onImport} disabled={importing}>
-              {importing ? t('lib.importing') : t('lib.import')}
+            <button type="button" className="primary" onClick={onImport}>
+              {importProgress
+                ? t('lib.importing', { done: importProgress.done, total: importProgress.total })
+                : t('lib.import')}
             </button>
           </header>
 

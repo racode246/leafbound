@@ -7,6 +7,19 @@ import Reader from './components/Reader'
 
 type Route = { kind: 'library' } | { kind: 'reader'; bookId: string }
 
+/** One unit of work for the import queue. */
+type ImportItem = { kind: 'path'; path: string } | { kind: 'file'; file: File }
+
+export interface ImportProgress {
+  done: number
+  total: number
+}
+
+interface NoticeState {
+  duplicates: string[]
+  failed: string[]
+}
+
 export default function App() {
   const [library, setLibrary] = useState<Library | null>(null)
   const lang = resolveLang(library?.settings.language)
@@ -25,75 +38,99 @@ interface ShellProps {
 function Shell({ library, setLibrary }: ShellProps) {
   const t = useT()
   const [route, setRoute] = useState<Route>({ kind: 'library' })
-  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [noticeState, setNoticeState] = useState<NoticeState>({ duplicates: [], failed: [] })
   const [dragging, setDragging] = useState(false)
   const libraryRef = useRef<Library | null>(null)
   libraryRef.current = library
-  const tRef = useRef(t)
-  tRef.current = t
 
-  const applyOutcome = useCallback(
-    (outcome: ImportOutcome) => {
-      if (outcome.added.length > 0) {
-        setLibrary((prev) => {
-          if (!prev) return prev
-          const known = new Set(prev.books.map((b) => b.id))
-          const fresh = outcome.added.filter((b) => !known.has(b.id))
-          return fresh.length > 0 ? { ...prev, books: [...prev.books, ...fresh] } : prev
-        })
-      }
-      const messages: string[] = []
-      if (outcome.duplicates.length > 0) {
-        messages.push(tRef.current('notice.duplicates', { names: outcome.duplicates.join(', ') }))
-      }
-      if (outcome.failed.length > 0) {
-        messages.push(tRef.current('notice.failed', { names: outcome.failed.join(', ') }))
-      }
-      setNotice(messages.length > 0 ? messages.join('\n') : null)
+  // Import queue. Every source (dialog, drag and drop, file association)
+  // enqueues here; one runner imports items one at a time so books appear
+  // as soon as each is done and concurrent requests never interleave.
+  const queueRef = useRef<ImportItem[]>([])
+  const runningRef = useRef(false)
+  const runStatsRef = useRef({ done: 0, total: 0, added: [] as Book[] })
+
+  const mergeAdded = useCallback(
+    (added: Book[]) => {
+      if (added.length === 0) return
+      setLibrary((prev) => {
+        if (!prev) return prev
+        const known = new Set(prev.books.map((b) => b.id))
+        const fresh = added.filter((b) => !known.has(b.id))
+        return fresh.length > 0 ? { ...prev, books: [...prev.books, ...fresh] } : prev
+      })
     },
     [setLibrary]
   )
 
-  const importPaths = useCallback(
-    async (paths: string[]) => {
-      const epubs = paths.filter((p) => p.toLowerCase().endsWith('.epub'))
-      if (epubs.length === 0) return
-      setImporting(true)
-      try {
-        const outcome = await api.importPaths(epubs)
-        applyOutcome(outcome)
-        if (outcome.added.length === 1 && epubs.length === 1) {
-          setRoute({ kind: 'reader', bookId: outcome.added[0].id })
-        }
-      } catch (err) {
-        setError(String(err))
-      } finally {
-        setImporting(false)
+  const recordOutcome = useCallback(
+    (outcome: ImportOutcome) => {
+      mergeAdded(outcome.added)
+      runStatsRef.current.added.push(...outcome.added)
+      if (outcome.duplicates.length > 0 || outcome.failed.length > 0) {
+        setNoticeState((prev) => ({
+          duplicates: [...prev.duplicates, ...outcome.duplicates],
+          failed: [...prev.failed, ...outcome.failed]
+        }))
       }
     },
-    [applyOutcome]
+    [mergeAdded]
+  )
+
+  const runQueue = useCallback(async () => {
+    if (runningRef.current) return
+    runningRef.current = true
+    try {
+      while (queueRef.current.length > 0) {
+        const item = queueRef.current.shift() as ImportItem
+        try {
+          const outcome =
+            item.kind === 'path' ? await api.importPaths([item.path]) : await api.importFiles([item.file])
+          recordOutcome(outcome)
+        } catch (err) {
+          setError(String(err))
+        }
+        runStatsRef.current.done += 1
+        setProgress({ done: runStatsRef.current.done, total: runStatsRef.current.total })
+      }
+    } finally {
+      runningRef.current = false
+      const stats = runStatsRef.current
+      // A single dropped/opened book is opened right away.
+      if (stats.total === 1 && stats.added.length === 1) {
+        const book = stats.added[0]
+        setRoute({ kind: 'reader', bookId: book.id })
+      }
+      runStatsRef.current = { done: 0, total: 0, added: [] }
+      setProgress(null)
+    }
+  }, [recordOutcome])
+
+  const enqueue = useCallback(
+    (items: ImportItem[]) => {
+      if (items.length === 0) return
+      queueRef.current.push(...items)
+      runStatsRef.current.total += items.length
+      setProgress({ done: runStatsRef.current.done, total: runStatsRef.current.total })
+      void runQueue()
+    },
+    [runQueue]
+  )
+
+  const importPaths = useCallback(
+    (paths: string[]) => {
+      enqueue(paths.filter((p) => p.toLowerCase().endsWith('.epub')).map((path) => ({ kind: 'path', path })))
+    },
+    [enqueue]
   )
 
   const importFiles = useCallback(
-    async (files: File[]) => {
-      const epubs = files.filter((f) => f.name.toLowerCase().endsWith('.epub'))
-      if (epubs.length === 0) return
-      setImporting(true)
-      try {
-        const outcome = await api.importFiles(epubs)
-        applyOutcome(outcome)
-        if (outcome.added.length === 1 && epubs.length === 1) {
-          setRoute({ kind: 'reader', bookId: outcome.added[0].id })
-        }
-      } catch (err) {
-        setError(String(err))
-      } finally {
-        setImporting(false)
-      }
+    (files: File[]) => {
+      enqueue(files.filter((f) => f.name.toLowerCase().endsWith('.epub')).map((file) => ({ kind: 'file', file })))
     },
-    [applyOutcome]
+    [enqueue]
   )
 
   useEffect(() => {
@@ -106,7 +143,7 @@ function Shell({ library, setLibrary }: ShellProps) {
         if (disposed) return
         setLibrary(lib)
         const pending = await api.takePendingOpenFiles()
-        if (pending.length > 0) await importPaths(pending)
+        if (pending.length > 0) importPaths(pending)
       } catch (err) {
         setError(String(err))
       }
@@ -121,14 +158,14 @@ function Shell({ library, setLibrary }: ShellProps) {
     }
     const failed = (what: string) => (err: unknown) => setError(`${what}: ${String(err)}`)
     void api
-      .onOpenFiles((paths) => void importPaths(paths))
+      .onOpenFiles((paths) => importPaths(paths))
       .then(keep)
       .catch(failed('open-files listener'))
     void api
       .onDragDrop((event) => {
         if (event.type === 'enter' || event.type === 'over') setDragging(true)
         else setDragging(false)
-        if (event.type === 'drop') void importFiles(event.files)
+        if (event.type === 'drop') importFiles(event.files)
       })
       .then(keep)
       .catch(failed('drag-drop listener'))
@@ -155,15 +192,13 @@ function Shell({ library, setLibrary }: ShellProps) {
   )
 
   const handleImport = useCallback(async () => {
-    setImporting(true)
     try {
-      applyOutcome(await api.pickAndImport(tRef.current('dialog.addEpub')))
+      const paths = await api.pickFiles(t('dialog.addEpub'))
+      importPaths(paths)
     } catch (err) {
       setError(String(err))
-    } finally {
-      setImporting(false)
     }
-  }, [applyOutcome])
+  }, [importPaths, t])
 
   const replaceBook = useCallback(
     (book: Book) => {
@@ -177,6 +212,15 @@ function Shell({ library, setLibrary }: ShellProps) {
   if (!library) {
     return <div className="boot">{error ? <p className="error">{error}</p> : t('boot.loading')}</div>
   }
+
+  const noticeLines: string[] = []
+  if (noticeState.duplicates.length > 0) {
+    noticeLines.push(t('notice.duplicates', { names: noticeState.duplicates.join(', ') }))
+  }
+  if (noticeState.failed.length > 0) {
+    noticeLines.push(t('notice.failed', { names: noticeState.failed.join(', ') }))
+  }
+  const notice = noticeLines.length > 0 ? noticeLines.join('\n') : null
 
   const dropOverlay = dragging && (
     <div className="drop-overlay" aria-hidden="true">
@@ -197,7 +241,7 @@ function Shell({ library, setLibrary }: ShellProps) {
             settings={library.settings}
             onSettings={updateSettings}
             onBack={() => setRoute({ kind: 'library' })}
-            onProgress={(progress) => replaceBook({ ...book, progress, lastOpenedAt: progress.updatedAt })}
+            onProgress={(p) => replaceBook({ ...book, progress: p, lastOpenedAt: p.updatedAt })}
           />
           {dropOverlay}
         </>
@@ -209,11 +253,11 @@ function Shell({ library, setLibrary }: ShellProps) {
     <>
       <LibraryView
         library={library}
-        importing={importing}
+        importProgress={progress}
         error={error}
         notice={notice}
         onDismissError={() => setError(null)}
-        onDismissNotice={() => setNotice(null)}
+        onDismissNotice={() => setNoticeState({ duplicates: [], failed: [] })}
         onImport={handleImport}
         onOpen={(book) => setRoute({ kind: 'reader', bookId: book.id })}
         onSettings={updateSettings}

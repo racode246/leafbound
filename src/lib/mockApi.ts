@@ -43,6 +43,8 @@ const files = new Map<string, () => Promise<ArrayBuffer>>([
 ])
 
 const annotations = new Map<string, Annotation[]>()
+/** Files chosen through the picker, keyed by the fake path handed back to the app. */
+const pendingPicks = new Map<string, File>()
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 const find = (id: string): Book => {
@@ -66,32 +68,28 @@ function pickFiles(): Promise<File[]> {
 export const mockApi: LeafboundApi = {
   getLibrary: async () => clone(state),
 
-  async pickAndImport() {
+  // The browser cannot hand out OS paths, so the picker returns fake ones that
+  // importPaths resolves back to the chosen File objects.
+  async pickFiles() {
     const picked = await pickFiles()
-    const added: Book[] = []
-    const duplicates: string[] = []
-    for (const file of picked) {
-      if (state.books.some((b) => b.fileName === file.name)) {
-        duplicates.push(file.name)
-        continue
-      }
-      const id = crypto.randomUUID()
-      files.set(id, () => file.arrayBuffer())
-      const book: Book = {
-        ...sample,
-        id,
-        title: file.name.replace(/\.epub$/i, ''),
-        author: '',
-        fileName: file.name,
-        addedAt: now()
-      }
-      state.books.push(book)
-      added.push(clone(book))
-    }
-    return { added, duplicates, failed: [] }
+    return picked.map((file) => {
+      const key = `mock://${crypto.randomUUID()}/${file.name}`
+      pendingPicks.set(key, file)
+      return key
+    })
   },
 
-  importPaths: async () => ({ added: [], duplicates: [], failed: [] }),
+  async importPaths(paths) {
+    const files: File[] = []
+    for (const p of paths) {
+      const file = pendingPicks.get(p)
+      if (file) {
+        pendingPicks.delete(p)
+        files.push(file)
+      }
+    }
+    return mockApi.importFiles(files)
+  },
 
   async importFiles(picked) {
     const added: Book[] = []

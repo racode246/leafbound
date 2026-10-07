@@ -10,7 +10,8 @@ export type DragDropEvent =
 
 export interface LeafboundApi {
   getLibrary(): Promise<Library>
-  pickAndImport(dialogTitle: string): Promise<ImportOutcome>
+  /** Opens the file picker and returns the chosen paths (none when cancelled). */
+  pickFiles(dialogTitle: string): Promise<string[]>
   importPaths(paths: string[]): Promise<ImportOutcome>
   /** Imports dropped files by content (HTML5 drag and drop has no OS paths). */
   importFiles(files: File[]): Promise<ImportOutcome>
