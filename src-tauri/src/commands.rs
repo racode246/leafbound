@@ -3,7 +3,7 @@ use std::path::Path;
 use tauri::ipc::Response;
 use tauri::State;
 
-use crate::library::{Book, Library, Settings};
+use crate::library::{Book, Import, ImportOutcome, Library, Settings};
 use crate::{AppState, PendingOpen};
 
 type Store<'a> = State<'a, AppState>;
@@ -18,16 +18,25 @@ pub fn get_library(state: Store<'_>) -> Library {
 }
 
 #[tauri::command]
-pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<Vec<Book>, String> {
+pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<ImportOutcome, String> {
     let mut store = lock(&state);
-    let mut imported = Vec::new();
+    let mut outcome = ImportOutcome::default();
     for p in paths {
-        match store.import_file(Path::new(&p)) {
-            Ok(book) => imported.push(book),
-            Err(err) => eprintln!("import failed for {p}: {err}"),
+        let path = Path::new(&p);
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| p.clone());
+        match store.import_file(path) {
+            Ok(Import::Added(book)) => outcome.added.push(book),
+            Ok(Import::Duplicate(_)) => outcome.duplicates.push(name),
+            Err(err) => {
+                eprintln!("import failed for {p}: {err}");
+                outcome.failed.push(name);
+            }
         }
     }
-    Ok(imported)
+    Ok(outcome)
 }
 
 #[tauri::command]

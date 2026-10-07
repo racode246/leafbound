@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ePub, { type Book as EpubBook, type NavItem, type Rendition } from 'epubjs'
 import { api } from '../lib/api'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
-import type { Book, Progress, Settings } from '../types'
+import { MIN_SPREAD_WIDTH, type Book, type Progress, type Settings } from '../types'
 import ReaderSettings from './ReaderSettings'
 import TocPanel from './TocPanel'
 import TitleBar from './TitleBar'
@@ -42,6 +42,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   const palette = PALETTES[settings.theme]
   const flow = settings.flow
+  const spread = flow === 'paginated' ? settings.spread : 'none'
 
   const persist = useCallback(
     (cfi: string, pct: number) => {
@@ -79,7 +80,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           height: '100%',
           flow: flow === 'scrolled' ? 'scrolled' : 'paginated',
           manager: flow === 'scrolled' ? 'continuous' : 'default',
-          spread: 'none',
+          spread,
+          minSpreadWidth: MIN_SPREAD_WIDTH,
           allowScriptedContent: false
         })
         renditionRef.current = rendition
@@ -168,7 +170,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       container.innerHTML = ''
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.id, flow])
+  }, [book.id, flow, spread])
 
   // Re-apply theme when typography/colour settings change.
   useEffect(() => {

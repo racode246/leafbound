@@ -58,6 +58,38 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
       </section>
 
       <section>
+        <h3>ページ</h3>
+        <div className="segmented wide" role="group" aria-disabled={settings.flow !== 'paginated'}>
+          <button
+            type="button"
+            className={settings.spread === 'none' ? 'active' : ''}
+            disabled={settings.flow !== 'paginated'}
+            onClick={() => onChange({ spread: 'none' })}
+          >
+            単ページ
+          </button>
+          <button
+            type="button"
+            className={settings.spread === 'auto' ? 'active' : ''}
+            disabled={settings.flow !== 'paginated'}
+            onClick={() => onChange({ spread: 'auto' })}
+            title="ウィンドウが広いときだけ見開き"
+          >
+            自動
+          </button>
+          <button
+            type="button"
+            className={settings.spread === 'always' ? 'active' : ''}
+            disabled={settings.flow !== 'paginated'}
+            onClick={() => onChange({ spread: 'always' })}
+          >
+            見開き
+          </button>
+        </div>
+        {settings.flow !== 'paginated' && <p className="muted small">見開きは横読み（ページ送り）のときに使えます。</p>}
+      </section>
+
+      <section>
         <h3>配色</h3>
         <div className="segmented wide" role="group">
           {THEMES.map((t) => (

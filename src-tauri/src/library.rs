@@ -25,9 +25,16 @@ pub struct Book {
     pub progress: Option<Progress>,
     #[serde(default)]
     pub categories: Vec<String>,
+    /// SHA-256 of the EPUB file, used to detect re-imports of the same book.
+    #[serde(default)]
+    pub content_hash: Option<String>,
     /// Absolute path of the cached cover image, resolved at read time.
     #[serde(default, skip_deserializing)]
     pub cover_path: Option<String>,
+}
+
+fn default_spread() -> String {
+    "auto".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +42,8 @@ pub struct Book {
 pub struct Settings {
     pub view: String,
     pub flow: String,
+    #[serde(default = "default_spread")]
+    pub spread: String,
     pub theme: String,
     pub font_family: String,
     pub font_size: u32,
@@ -46,12 +55,29 @@ impl Default for Settings {
         Self {
             view: "grid".into(),
             flow: "paginated".into(),
+            spread: default_spread(),
             theme: "light".into(),
             font_family: "publisher".into(),
             font_size: 18,
             line_height: 1.7,
         }
     }
+}
+
+/// Result of importing one file.
+#[derive(Debug)]
+pub enum Import {
+    Added(Book),
+    /// The same file (by content hash) is already in the library.
+    Duplicate(Book),
+}
+
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOutcome {
+    pub added: Vec<Book>,
+    pub duplicates: Vec<String>,
+    pub failed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,7 +124,32 @@ impl LibraryStore {
             Ok(raw) => serde_json::from_str::<Persisted>(&raw).unwrap_or_default(),
             Err(_) => Persisted::default(),
         };
-        Ok(Self { books_dir, covers_dir, file, data })
+        let mut store = Self { books_dir, covers_dir, file, data };
+        store.backfill_hashes();
+        Ok(store)
+    }
+
+    /// Books imported before content hashing existed get a hash computed from
+    /// their stored copy so duplicate detection covers them too.
+    fn backfill_hashes(&mut self) {
+        let mut changed = false;
+        let paths: Vec<(usize, PathBuf)> = self
+            .data
+            .books
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.content_hash.is_none())
+            .map(|(i, b)| (i, self.book_path(&b.id)))
+            .collect();
+        for (i, path) in paths {
+            if let Ok(hash) = hash_file(&path) {
+                self.data.books[i].content_hash = Some(hash);
+                changed = true;
+            }
+        }
+        if changed {
+            let _ = self.save();
+        }
     }
 
     pub fn snapshot(&self) -> Library {
@@ -135,7 +186,7 @@ impl LibraryStore {
             .ok_or_else(|| format!("unknown book: {id}"))
     }
 
-    pub fn import_file(&mut self, source: &Path) -> Result<Book, String> {
+    pub fn import_file(&mut self, source: &Path) -> Result<Import, String> {
         let is_epub = source
             .extension()
             .map(|e| e.eq_ignore_ascii_case("epub"))
@@ -143,6 +194,17 @@ impl LibraryStore {
         if !is_epub {
             return Err(format!("not an EPUB file: {}", source.display()));
         }
+
+        let hash = hash_file(source)?;
+        if let Some(existing) = self
+            .data
+            .books
+            .iter()
+            .find(|b| b.content_hash.as_deref() == Some(hash.as_str()))
+        {
+            return Ok(Import::Duplicate(self.with_cover(existing)));
+        }
+
         let id = uuid::Uuid::new_v4().to_string();
         let target = self.book_path(&id);
         fs::copy(source, &target).map_err(|e| format!("copy failed: {e}"))?;
@@ -171,11 +233,12 @@ impl LibraryStore {
             last_opened_at: None,
             progress: None,
             categories: Vec::new(),
+            content_hash: Some(hash),
             cover_path: None,
         };
         self.data.books.push(book.clone());
         self.save()?;
-        Ok(self.with_cover(&book))
+        Ok(Import::Added(self.with_cover(&book)))
     }
 
     pub fn read_book(&self, id: &str) -> Result<Vec<u8>, String> {
@@ -269,9 +332,16 @@ fn read_metadata(path: &Path) -> (Option<String>, Option<String>, Option<Vec<u8>
         Ok(mut doc) => {
             let title = doc.mdata("title").map(|m| m.value.clone());
             let author = doc.mdata("creator").map(|m| m.value.clone());
-            let cover = doc.get_cover().map(|(bytes, _mime)| bytes);
+            let cover = crate::cover::extract_cover(&mut doc);
             (title, author, cover)
         }
         Err(_) => (None, None, None),
     }
+}
+
+fn hash_file(path: &Path) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    let bytes = fs::read(path).map_err(|e| format!("read failed: {e}"))?;
+    let digest = Sha256::digest(&bytes);
+    Ok(digest.iter().map(|b| format!("{b:02x}")).collect())
 }

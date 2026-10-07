@@ -11,7 +11,9 @@ interface Props {
   library: Library
   importing: boolean
   error: string | null
+  notice: string | null
   onDismissError: () => void
+  onDismissNotice: () => void
   onImport: () => void
   onOpen: (book: Book) => void
   onSettings: (patch: Partial<Settings>) => void
@@ -25,7 +27,9 @@ export default function LibraryView({
   library,
   importing,
   error,
+  notice,
   onDismissError,
+  onDismissNotice,
   onImport,
   onOpen,
   onSettings,
@@ -171,6 +175,14 @@ export default function LibraryView({
           <div className="banner error" role="alert">
             <span>{error}</span>
             <button type="button" onClick={onDismissError}>
+              閉じる
+            </button>
+          </div>
+        )}
+        {notice && (
+          <div className="banner notice" role="status">
+            <span>{notice}</span>
+            <button type="button" onClick={onDismissNotice}>
               閉じる
             </button>
           </div>

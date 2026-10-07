@@ -46,7 +46,22 @@ export function applyReaderTheme(rendition: Rendition, settings: Settings): void
     body,
     'body *:not(img):not(svg):not(code):not(pre):not(kbd):not(samp)': descendants,
     a: { color: `${palette.link} !important` },
-    'img, svg': { 'max-width': '100% !important', height: 'auto' }
+    // Keep images (covers in particular) inside one page without distorting
+    // them: publishers often set width/height to 100%, which stretches.
+    img: {
+      'max-width': '100% !important',
+      'max-height': '100vh !important',
+      width: 'auto !important',
+      height: 'auto !important',
+      'object-fit': 'contain !important'
+    },
+    svg: {
+      'max-width': '100% !important',
+      'max-height': '100vh !important'
+    },
+    'svg image': {
+      'object-fit': 'contain'
+    }
   }
 
   rendition.themes.register(THEME_NAME, rules)

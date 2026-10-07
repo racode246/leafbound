@@ -1,5 +1,6 @@
 export type ViewMode = 'grid' | 'list'
 export type Flow = 'paginated' | 'scrolled'
+export type Spread = 'none' | 'auto' | 'always'
 export type ThemeName = 'light' | 'sepia' | 'dark'
 
 export interface Progress {
@@ -18,12 +19,14 @@ export interface Book {
   lastOpenedAt: string | null
   progress: Progress | null
   categories: string[]
+  contentHash: string | null
   coverPath: string | null
 }
 
 export interface Settings {
   view: ViewMode
   flow: Flow
+  spread: Spread
   theme: ThemeName
   fontFamily: string
   fontSize: number
@@ -35,6 +38,17 @@ export interface Library {
   categories: string[]
   settings: Settings
 }
+
+export interface ImportOutcome {
+  added: Book[]
+  /** File names that were skipped because the same book is already in the library. */
+  duplicates: string[]
+  /** File names that could not be imported. */
+  failed: string[]
+}
+
+/** Width (CSS px) above which "auto" spread shows two pages. */
+export const MIN_SPREAD_WIDTH = 900
 
 export const PUBLISHER_FONT = 'publisher'
 

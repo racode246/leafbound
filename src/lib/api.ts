@@ -2,25 +2,27 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { Book, Library, Settings } from '../types'
+import type { Book, ImportOutcome, Library, Settings } from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { mockApi } from './mockApi'
+
+const NOTHING: ImportOutcome = { added: [], duplicates: [], failed: [] }
 
 const tauriApi: LeafboundApi = {
   getLibrary: () => invoke<Library>('get_library'),
 
-  async pickAndImport(): Promise<Book[]> {
+  async pickAndImport(): Promise<ImportOutcome> {
     const selected = await open({
       multiple: true,
       title: 'EPUB を追加',
       filters: [{ name: 'EPUB', extensions: ['epub'] }]
     })
-    if (!selected) return []
+    if (!selected) return NOTHING
     const paths = Array.isArray(selected) ? selected : [selected]
-    return invoke<Book[]>('import_books', { paths })
+    return invoke<ImportOutcome>('import_books', { paths })
   },
 
-  importPaths: (paths) => invoke<Book[]>('import_books', { paths }),
+  importPaths: (paths) => invoke<ImportOutcome>('import_books', { paths }),
   readBook: (id) => invoke<ArrayBuffer>('read_book', { id }),
   saveProgress: (id, cfi, percent) => invoke<void>('save_progress', { id, cfi, percent }),
   setBookCategories: (id, categories) => invoke<Book>('set_book_categories', { id, categories }),

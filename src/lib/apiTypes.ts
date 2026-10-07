@@ -1,11 +1,11 @@
-import type { Book, Library, Settings } from '../types'
+import type { Book, ImportOutcome, Library, Settings } from '../types'
 
 export type Unlisten = () => void
 
 export interface LeafboundApi {
   getLibrary(): Promise<Library>
-  pickAndImport(): Promise<Book[]>
-  importPaths(paths: string[]): Promise<Book[]>
+  pickAndImport(): Promise<ImportOutcome>
+  importPaths(paths: string[]): Promise<ImportOutcome>
   readBook(id: string): Promise<ArrayBuffer>
   saveProgress(id: string, cfi: string, percent: number): Promise<void>
   setBookCategories(id: string, categories: string[]): Promise<Book>

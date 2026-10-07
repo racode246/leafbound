@@ -1,4 +1,5 @@
 mod commands;
+mod cover;
 pub mod library;
 
 use std::sync::Mutex;

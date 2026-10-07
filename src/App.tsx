@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './lib/api'
-import type { Book, Library, Settings } from './types'
+import type { Book, ImportOutcome, Library, Settings } from './types'
 import LibraryView from './components/LibraryView'
 import Reader from './components/Reader'
 
@@ -11,12 +11,27 @@ export default function App() {
   const [route, setRoute] = useState<Route>({ kind: 'library' })
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const libraryRef = useRef<Library | null>(null)
   libraryRef.current = library
 
-  const mergeBooks = useCallback((added: Book[]) => {
-    if (added.length === 0) return
-    setLibrary((prev) => (prev ? { ...prev, books: [...prev.books, ...added] } : prev))
+  const applyOutcome = useCallback((outcome: ImportOutcome) => {
+    if (outcome.added.length > 0) {
+      setLibrary((prev) => {
+        if (!prev) return prev
+        const known = new Set(prev.books.map((b) => b.id))
+        const fresh = outcome.added.filter((b) => !known.has(b.id))
+        return fresh.length > 0 ? { ...prev, books: [...prev.books, ...fresh] } : prev
+      })
+    }
+    const messages: string[] = []
+    if (outcome.duplicates.length > 0) {
+      messages.push(`すでに追加済みのためスキップしました: ${outcome.duplicates.join('、')}`)
+    }
+    if (outcome.failed.length > 0) {
+      messages.push(`取り込めませんでした: ${outcome.failed.join('、')}`)
+    }
+    setNotice(messages.length > 0 ? messages.join('\n') : null)
   }, [])
 
   const importPaths = useCallback(
@@ -25,10 +40,10 @@ export default function App() {
       if (epubs.length === 0) return
       setImporting(true)
       try {
-        const added = await api.importPaths(epubs)
-        mergeBooks(added)
-        if (added.length === 1 && epubs.length === 1) {
-          setRoute({ kind: 'reader', bookId: added[0].id })
+        const outcome = await api.importPaths(epubs)
+        applyOutcome(outcome)
+        if (outcome.added.length === 1 && epubs.length === 1) {
+          setRoute({ kind: 'reader', bookId: outcome.added[0].id })
         }
       } catch (err) {
         setError(String(err))
@@ -36,7 +51,7 @@ export default function App() {
         setImporting(false)
       }
     },
-    [mergeBooks]
+    [applyOutcome]
   )
 
   useEffect(() => {
@@ -86,13 +101,13 @@ export default function App() {
   const handleImport = useCallback(async () => {
     setImporting(true)
     try {
-      mergeBooks(await api.pickAndImport())
+      applyOutcome(await api.pickAndImport())
     } catch (err) {
       setError(String(err))
     } finally {
       setImporting(false)
     }
-  }, [mergeBooks])
+  }, [applyOutcome])
 
   const replaceBook = useCallback((book: Book) => {
     setLibrary((prev) =>
@@ -124,7 +139,9 @@ export default function App() {
       library={library}
       importing={importing}
       error={error}
+      notice={notice}
       onDismissError={() => setError(null)}
+      onDismissNotice={() => setNotice(null)}
       onImport={handleImport}
       onOpen={(book) => setRoute({ kind: 'reader', bookId: book.id })}
       onSettings={updateSettings}

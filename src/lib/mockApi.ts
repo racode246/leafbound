@@ -11,6 +11,7 @@ import type { LeafboundApi } from './apiTypes'
 const DEFAULT_SETTINGS: Settings = {
   view: 'grid',
   flow: 'paginated',
+  spread: 'auto',
   theme: 'light',
   fontFamily: 'publisher',
   fontSize: 18,
@@ -29,6 +30,7 @@ const sample: Book = {
   lastOpenedAt: null,
   progress: null,
   categories: [],
+  contentHash: null,
   coverPath: null
 }
 
@@ -62,7 +64,12 @@ export const mockApi: LeafboundApi = {
   async pickAndImport() {
     const picked = await pickFiles()
     const added: Book[] = []
+    const duplicates: string[] = []
     for (const file of picked) {
+      if (state.books.some((b) => b.fileName === file.name)) {
+        duplicates.push(file.name)
+        continue
+      }
       const id = crypto.randomUUID()
       files.set(id, () => file.arrayBuffer())
       const book: Book = {
@@ -76,10 +83,10 @@ export const mockApi: LeafboundApi = {
       state.books.push(book)
       added.push(clone(book))
     }
-    return added
+    return { added, duplicates, failed: [] }
   },
 
-  importPaths: async () => [],
+  importPaths: async () => ({ added: [], duplicates: [], failed: [] }),
   readBook: (id) => {
     const loader = files.get(id)
     if (!loader) return Promise.reject(new Error(`unknown book: ${id}`))
