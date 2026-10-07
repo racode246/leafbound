@@ -17,9 +17,11 @@ pub fn get_library(state: Store<'_>) -> Library {
     lock(&state).snapshot()
 }
 
+/// Imports files by path. Hashing, copying and cover extraction run without
+/// the store lock so the library stays responsive while books are added.
 #[tauri::command]
 pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<ImportOutcome, String> {
-    let mut store = lock(&state);
+    let dirs = lock(&state).dirs();
     let mut outcome = ImportOutcome::default();
     for p in paths {
         let path = Path::new(&p);
@@ -27,14 +29,15 @@ pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<Import
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| p.clone());
-        match store.import_file(path) {
-            Ok(Import::Added(book)) => outcome.added.push(book),
-            Ok(Import::Duplicate(_)) => outcome.duplicates.push(name),
+        let prepared = match dirs.prepare(path) {
+            Ok(prepared) => prepared,
             Err(err) => {
                 eprintln!("import failed for {p}: {err}");
                 outcome.failed.push(name);
+                continue;
             }
-        }
+        };
+        record(&mut outcome, name, lock(&state).commit_import(prepared));
     }
     Ok(outcome)
 }
@@ -53,8 +56,20 @@ pub async fn import_book_bytes(state: Store<'_>, request: Request<'_>) -> Result
         InvokeBody::Raw(bytes) => bytes,
         InvokeBody::Json(_) => return Err("expected a binary body".into()),
     };
+    let dirs = lock(&state).dirs();
     let mut outcome = ImportOutcome::default();
-    match lock(&state).import_bytes(&name, bytes) {
+    match dirs.prepare_bytes(&name, bytes) {
+        Ok(prepared) => record(&mut outcome, name, lock(&state).commit_import(prepared)),
+        Err(err) => {
+            eprintln!("import failed for {name}: {err}");
+            outcome.failed.push(name);
+        }
+    }
+    Ok(outcome)
+}
+
+fn record(outcome: &mut ImportOutcome, name: String, result: Result<Import, String>) {
+    match result {
         Ok(Import::Added(book)) => outcome.added.push(book),
         Ok(Import::Duplicate(_)) => outcome.duplicates.push(name),
         Err(err) => {
@@ -62,7 +77,6 @@ pub async fn import_book_bytes(state: Store<'_>, request: Request<'_>) -> Result
             outcome.failed.push(name);
         }
     }
-    Ok(outcome)
 }
 
 fn percent_decode(s: &str) -> String {
@@ -83,9 +97,23 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8(out).unwrap_or_else(|_| s.to_string())
 }
 
+/// Re-extracts the cover of a stored book with the current heuristics.
+#[tauri::command]
+pub async fn refresh_cover(state: Store<'_>, id: String) -> Result<Book, String> {
+    let dirs = {
+        let store = lock(&state);
+        store.stored_book_path(&id)?;
+        store.dirs()
+    };
+    let has_cover = dirs.extract_cover_for(&id);
+    lock(&state).set_cover(&id, has_cover)
+}
+
+/// Reads a stored book. The lock is only held to resolve the path.
 #[tauri::command]
 pub async fn read_book(state: Store<'_>, id: String) -> Result<Response, String> {
-    let bytes = lock(&state).read_book(&id)?;
+    let path = lock(&state).stored_book_path(&id)?;
+    let bytes = std::fs::read(path).map_err(|e| format!("read failed: {e}"))?;
     Ok(Response::new(bytes))
 }
 

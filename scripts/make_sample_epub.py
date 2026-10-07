@@ -106,8 +106,70 @@ def chapter(n: int, title: str, paras: int, anchor: bool = False) -> str:
 """
 
 
+def big_png(w: int, h: int, seed: int) -> bytes:
+    """A w x h RGB gradient PNG; `seed` shifts the colours so pages differ."""
+    rows = b"".join(
+        b"\x00" + bytes(v for x in range(w) for v in ((x * 255 // w + seed * 60) % 256, (y * 255 // h) % 256, 90))
+        for y in range(h)
+    )
+
+    def chunk(tag: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
+
+
+SCANNED_OPF = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-scanned</dc:identifier>
+    <dc:title>スキャン本</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>ja</dc:language>
+  </metadata>
+  <manifest>
+    <item id="p1" href="page1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="p2" href="page2.xhtml" media-type="application/xhtml+xml"/>
+    <item id="i1" href="images/page001.png" media-type="image/png"/>
+    <item id="i2" href="images/page002.png" media-type="image/png"/>
+  </manifest>
+  <spine>
+    <itemref idref="p1"/>
+    <itemref idref="p2"/>
+  </spine>
+</package>
+"""
+
+
+def scanned_page(n: int) -> str:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>p{n}</title></head>
+<body><div><img src="images/page{n:03d}.png" alt=""/></div></body></html>
+"""
+
+
+def write_scanned(path: Path) -> None:
+    """A scan-style EPUB 2: no cover metadata, every page is one full-size image.
+    The second page is deliberately larger than the first; the first page must still win."""
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr("META-INF/container.xml", CONTAINER, compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("OEBPS/content.opf", SCANNED_OPF, compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("OEBPS/page1.xhtml", scanned_page(1), compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("OEBPS/page2.xhtml", scanned_page(2), compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("OEBPS/images/page001.png", big_png(320, 480, 0), compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("OEBPS/images/page002.png", big_png(400, 600, 1), compress_type=zipfile.ZIP_DEFLATED)
+
+
 def main() -> None:
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    write_scanned(OUT.parent / "scanned.epub")
+    print(f"wrote {OUT.parent / 'scanned.epub'}")
     with zipfile.ZipFile(OUT, "w") as z:
         z.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
         z.writestr("META-INF/container.xml", CONTAINER, compress_type=zipfile.ZIP_DEFLATED)

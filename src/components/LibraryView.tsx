@@ -82,6 +82,14 @@ export default function LibraryView({
     onLibrary({ ...library, books: library.books.filter((b) => b.id !== book.id) })
   }
 
+  const handleRefreshCover = async (book: Book) => {
+    try {
+      onBook(await api.refreshCover(book.id))
+    } catch (err) {
+      console.error('refreshCover', err)
+    }
+  }
+
   const handleAddCategory = async (name: string) => {
     const categories = await api.addCategory(name)
     onLibrary({ ...library, categories })
@@ -221,6 +229,7 @@ export default function LibraryView({
                   book={book}
                   onOpen={() => onOpen(book)}
                   onCategories={(el) => openPicker(book, el)}
+                  onRefreshCover={() => void handleRefreshCover(book)}
                   onDelete={() => void handleDelete(book)}
                 />
               ))}
@@ -244,6 +253,7 @@ export default function LibraryView({
                     book={book}
                     onOpen={() => onOpen(book)}
                     onCategories={(el) => openPicker(book, el)}
+                    onRefreshCover={() => void handleRefreshCover(book)}
                     onDelete={() => void handleDelete(book)}
                   />
                 ))}

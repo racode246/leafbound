@@ -53,6 +53,7 @@ const tauriApi: LeafboundApi = {
   saveProgress: (id, cfi, percent) => invoke<void>('save_progress', { id, cfi, percent }),
   setBookCategories: (id, categories) => invoke<Book>('set_book_categories', { id, categories }),
   deleteBook: (id) => invoke<void>('delete_book', { id }),
+  refreshCover: (id) => invoke<Book>('refresh_cover', { id }),
   addCategory: (name) => invoke<string[]>('add_category', { name }),
   renameCategory: (from, to) => invoke<Library>('rename_category', { from, to }),
   removeCategory: (name) => invoke<Library>('remove_category', { name }),
@@ -66,7 +67,7 @@ const tauriApi: LeafboundApi = {
   onDragDrop: async (cb) => listenHtml5DragDrop(cb),
 
   // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs
-  coverUrl: (book) => (book.hasCover ? convertFileSrc(book.id, 'lbcover') : null)
+  coverUrl: (book) => (book.hasCover ? `${convertFileSrc(book.id, 'lbcover')}?v=${book.coverVersion}` : null)
 }
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

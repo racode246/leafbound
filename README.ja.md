@@ -86,10 +86,6 @@ src-tauri/      Rust バックエンド: ライブラリ保存、EPUB メタデ�
 scripts/        補助スクリプト: アプリアイコン、テスト用 EPUB、スクリーンショット用デモ本
 ```
 
-## ロードマップ
-
-- 複数ウィンドウ
-
 ## コントリビュート
 
 Issue と Pull Request を歓迎します。PR を送る前に `npm run typecheck` と `cargo test` を通してください。ユーザーに見える文字列を追加するときは `src/i18n.tsx` の両方の辞書に入れてください。

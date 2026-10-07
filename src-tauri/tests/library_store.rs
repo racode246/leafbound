@@ -112,6 +112,35 @@ fn stores_annotations_per_book() {
 }
 
 #[test]
+fn scanned_book_uses_first_page_as_cover() {
+    use std::io::Read;
+
+    let dir = temp_dir("scan");
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    let scanned = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scanned.epub");
+    let book = added(store.import_file(&scanned).unwrap());
+    assert_eq!(book.title, "スキャン本");
+    assert!(book.has_cover, "scan without cover metadata should still get a cover");
+
+    // The cover must be page 1's image, even though page 2's image is larger.
+    let cover = fs::read(store.cover_path(&book.id)).unwrap();
+    let file = fs::File::open(&scanned).unwrap();
+    let mut zip = zip::ZipArchive::new(file).unwrap();
+    let mut page1 = Vec::new();
+    zip.by_name("OEBPS/images/page001.png").unwrap().read_to_end(&mut page1).unwrap();
+    assert_eq!(cover, page1);
+
+    // Refreshing re-extracts and bumps the version so the UI reloads the image.
+    let dirs = store.dirs();
+    assert!(dirs.extract_cover_for(&book.id));
+    let refreshed = store.set_cover(&book.id, true).unwrap();
+    assert_eq!(refreshed.cover_version, 1);
+    assert!(refreshed.has_cover);
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
 fn imports_from_bytes() {
     let dir = temp_dir("bytes");
     let mut store = LibraryStore::load(dir.clone()).unwrap();

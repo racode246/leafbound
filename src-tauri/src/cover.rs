@@ -1,9 +1,16 @@
 //! Cover image selection.
 //!
 //! The `epub` crate only honours the `cover-image` property (EPUB 3) or
-//! `<meta name="cover">` (EPUB 2). Publishers frequently tag a small thumbnail
-//! there while the real cover lives on the first page as an `<img>`/`<image>`.
-//! We gather every plausible candidate and keep the largest one by pixel area.
+//! `<meta name="cover">` (EPUB 2). Real-world books are messier: the tagged
+//! cover may be a thumbnail, the meta entry may point at the cover *page*
+//! rather than an image, and scanned books have no metadata at all and just
+//! start with a full-page image.
+//!
+//! Candidates are therefore gathered in priority order and the first one that
+//! is at least [`MIN_COVER_AREA`] pixels wins. Only if every candidate is tiny
+//! do we fall back to the largest of them. Body pages are never considered
+//! beyond the very first spine document, so scans do not end up showing an
+//! interior page as the thumbnail.
 
 use std::collections::HashSet;
 use std::fs::File;
@@ -14,6 +21,10 @@ use epub::doc::EpubDoc;
 
 type Doc = EpubDoc<BufReader<File>>;
 
+/// Anything smaller than this (300x300) is treated as a thumbnail and only
+/// used when nothing better exists.
+const MIN_COVER_AREA: u64 = 300 * 300;
+
 pub fn extract_cover(doc: &mut Doc) -> Option<Vec<u8>> {
     let mut candidates: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
@@ -23,36 +34,24 @@ pub fn extract_cover(doc: &mut Doc) -> Option<Vec<u8>> {
         }
     };
 
+    // 1. Explicit cover (EPUB 3 `cover-image` property, or EPUB 2 meta).
     if let Some(id) = doc.get_cover_id() {
         push(id, &mut candidates);
     }
-    if let Some(item) = doc.mdata("cover") {
-        let id = item.value.clone();
-        if doc.resources.contains_key(&id) {
-            push(id, &mut candidates);
-        }
-    }
 
-    // Images referenced from the first couple of spine documents.
-    let first_pages: Vec<String> = doc.spine.iter().take(2).map(|s| s.idref.clone()).collect();
-    for idref in first_pages {
-        let page_path = match doc.resources.get(&idref) {
-            Some(r) => r.path.clone(),
-            None => continue,
-        };
-        let Some((content, _mime)) = doc.get_resource_str(&idref) else {
-            continue;
-        };
-        for reference in image_references(&content) {
-            let resolved = resolve(&page_path, &reference);
-            if let Some(id) = resource_id_for_path(doc, &resolved) {
+    // 2. `<meta name="cover">` may name an image or the cover page itself.
+    if let Some(id) = doc.mdata("cover").map(|m| m.value.clone()) {
+        if is_image(doc, &id) {
+            push(id, &mut candidates);
+        } else if is_xhtml(doc, &id) {
+            for id in images_in_document(doc, &id) {
                 push(id, &mut candidates);
             }
         }
     }
 
-    // Anything that looks like a cover by name.
-    let by_name: Vec<String> = doc
+    // 3. Image resources that are called "cover" (sorted for determinism).
+    let mut by_name: Vec<String> = doc
         .resources
         .iter()
         .filter(|(id, r)| {
@@ -62,21 +61,24 @@ pub fn extract_cover(doc: &mut Doc) -> Option<Vec<u8>> {
         })
         .map(|(id, _)| id.clone())
         .collect();
+    by_name.sort();
     for id in by_name {
         push(id, &mut candidates);
     }
 
-    let mut best: Option<(u64, usize, Vec<u8>)> = None;
-    for (order, id) in candidates.iter().enumerate() {
-        let is_image = doc
-            .resources
-            .get(id)
-            .map(|r| r.mime.starts_with("image/"))
-            .unwrap_or(false);
-        if !is_image {
+    // 4. The first image on the first spine page (scanned books, untagged covers).
+    if let Some(first) = doc.spine.first().map(|s| s.idref.clone()) {
+        if let Some(id) = images_in_document(doc, &first).into_iter().next() {
+            push(id, &mut candidates);
+        }
+    }
+
+    let mut fallback: Option<(u64, Vec<u8>)> = None;
+    for id in candidates {
+        if !is_image(doc, &id) {
             continue;
         }
-        let Some((bytes, _mime)) = doc.get_resource(id) else {
+        let Some((bytes, _mime)) = doc.get_resource(&id) else {
             continue;
         };
         if bytes.is_empty() {
@@ -85,20 +87,53 @@ pub fn extract_cover(doc: &mut Doc) -> Option<Vec<u8>> {
         let area = imagesize::blob_size(&bytes)
             .map(|s| s.width as u64 * s.height as u64)
             .unwrap_or(0);
-        let better = match &best {
-            None => true,
-            Some((best_area, best_order, _)) => area > *best_area || (area == *best_area && order < *best_order),
-        };
-        if better {
-            best = Some((area, order, bytes));
+        if area >= MIN_COVER_AREA {
+            return Some(bytes);
+        }
+        if fallback.as_ref().map(|(a, _)| area > *a).unwrap_or(true) {
+            fallback = Some((area, bytes));
         }
     }
-    best.map(|(_, _, bytes)| bytes)
+    fallback.map(|(_, bytes)| bytes)
+}
+
+fn is_image(doc: &Doc, id: &str) -> bool {
+    doc.resources
+        .get(id)
+        .map(|r| r.mime.starts_with("image/"))
+        .unwrap_or(false)
+}
+
+fn is_xhtml(doc: &Doc, id: &str) -> bool {
+    doc.resources
+        .get(id)
+        .map(|r| r.mime.contains("xhtml") || r.mime.contains("html"))
+        .unwrap_or(false)
+}
+
+/// Resource ids of the images referenced by an XHTML resource, in document order.
+fn images_in_document(doc: &mut Doc, id: &str) -> Vec<String> {
+    let Some(page_path) = doc.resources.get(id).map(|r| r.path.clone()) else {
+        return Vec::new();
+    };
+    let Some((content, _mime)) = doc.get_resource_str(id) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for reference in image_references(&content) {
+        let resolved = resolve(&page_path, &reference);
+        if let Some(id) = resource_id_for_path(doc, &resolved) {
+            if !out.contains(&id) {
+                out.push(id);
+            }
+        }
+    }
+    out
 }
 
 /// Pulls `src`/`href`/`xlink:href` values out of `<img>` and `<image>` tags.
 fn image_references(html: &str) -> Vec<String> {
-    let mut out = Vec::new();
+    let mut found: Vec<(usize, String)> = Vec::new();
     let lower = html.to_ascii_lowercase();
     for tag in ["<img", "<image"] {
         let mut from = 0;
@@ -109,7 +144,7 @@ fn image_references(html: &str) -> Vec<String> {
             for attr in ["xlink:href=", "src=", "href="] {
                 if let Some(v) = attr_value(slice, attr) {
                     if !v.is_empty() && !v.starts_with("data:") {
-                        out.push(v);
+                        found.push((start, v));
                     }
                     break;
                 }
@@ -117,7 +152,8 @@ fn image_references(html: &str) -> Vec<String> {
             from = end;
         }
     }
-    out
+    found.sort_by_key(|(pos, _)| *pos);
+    found.into_iter().map(|(_, v)| v).collect()
 }
 
 fn attr_value(tag: &str, attr: &str) -> Option<String> {
@@ -189,10 +225,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn finds_image_references() {
-        let html = r#"<body><div><img class="c" src="../Images/Cover%20Big.jpg"/></div>
-            <svg><image xlink:href="img/x.png" width="100%"/></svg></body>"#;
-        assert_eq!(image_references(html), vec!["../Images/Cover Big.jpg", "img/x.png"]);
+    fn finds_image_references_in_document_order() {
+        let html = r#"<body><svg><image xlink:href="img/x.png" width="100%"/></svg>
+            <div><img class="c" src="../Images/Cover%20Big.jpg"/></div></body>"#;
+        assert_eq!(image_references(html), vec!["img/x.png", "../Images/Cover Big.jpg"]);
     }
 
     #[test]

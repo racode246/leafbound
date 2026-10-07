@@ -86,10 +86,6 @@ src-tauri/      Rust backend: library store, EPUB metadata and cover extraction,
 scripts/        Helpers: app icon, sample EPUB fixture, demo books for screenshots
 ```
 
-## Roadmap
-
-- Multiple windows
-
 ## Contributing
 
 Issues and pull requests are welcome. Please run `npm run typecheck` and `cargo test` before opening a pull request. New user-facing strings go into both dictionaries in `src/i18n.tsx`.

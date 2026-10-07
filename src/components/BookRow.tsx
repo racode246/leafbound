@@ -7,10 +7,11 @@ interface Props {
   book: Book
   onOpen: () => void
   onCategories: (anchor: HTMLElement) => void
+  onRefreshCover: () => void
   onDelete: () => void
 }
 
-export default function BookRow({ book, onOpen, onCategories, onDelete }: Props) {
+export default function BookRow({ book, onOpen, onCategories, onRefreshCover, onDelete }: Props) {
   const t = useT()
   const pct = book.progress ? Math.round(book.progress.percent * 100) : 0
   const label = progressLabel(book, t)
@@ -49,6 +50,9 @@ export default function BookRow({ book, onOpen, onCategories, onDelete }: Props)
       <td className="col-actions">
         <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
           ⌂
+        </button>
+        <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>
+          ↻
         </button>
         <button type="button" title={t('card.delete')} onClick={onDelete}>
           🗑

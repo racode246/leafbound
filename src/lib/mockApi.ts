@@ -33,6 +33,7 @@ const sample: Book = {
   progress: null,
   categories: [],
   contentHash: null,
+  coverVersion: 0,
   coverPath: null
 }
 
@@ -126,6 +127,11 @@ export const mockApi: LeafboundApi = {
   },
   deleteBook: async (id) => {
     state.books = state.books.filter((b) => b.id !== id)
+  },
+  refreshCover: async (id) => {
+    const b = find(id)
+    b.coverVersion += 1
+    return clone(b)
   },
   addCategory: async (name) => {
     const clean = name.trim()

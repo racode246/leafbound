@@ -601,8 +601,9 @@ input:not([type]) {
 }
 
 .col-actions {
-  width: 70px;
+  width: 96px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .row-cover {

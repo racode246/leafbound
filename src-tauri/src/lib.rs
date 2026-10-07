@@ -48,6 +48,7 @@ pub fn run() {
             commands::import_books,
             commands::import_book_bytes,
             commands::read_book,
+            commands::refresh_cover,
             commands::save_progress,
             commands::set_book_categories,
             commands::delete_book,

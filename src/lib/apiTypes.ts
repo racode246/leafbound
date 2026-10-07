@@ -18,6 +18,8 @@ export interface LeafboundApi {
   saveProgress(id: string, cfi: string, percent: number): Promise<void>
   setBookCategories(id: string, categories: string[]): Promise<Book>
   deleteBook(id: string): Promise<void>
+  /** Re-extracts the cover with the current heuristics. */
+  refreshCover(id: string): Promise<Book>
   addCategory(name: string): Promise<string[]>
   renameCategory(from: string, to: string): Promise<Library>
   removeCategory(name: string): Promise<Library>

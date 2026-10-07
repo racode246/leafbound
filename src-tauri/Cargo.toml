@@ -32,3 +32,6 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[dev-dependencies]
+zip = { version = "3", default-features = false, features = ["deflate"] }

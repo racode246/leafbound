@@ -6,6 +6,7 @@ interface Props {
   book: Book
   onOpen: () => void
   onCategories: (anchor: HTMLElement) => void
+  onRefreshCover: () => void
   onDelete: () => void
 }
 
@@ -15,7 +16,7 @@ export function progressLabel(book: Book, t: Translate): string {
   return pct >= 100 ? t('progress.done') : `${pct}%`
 }
 
-export default function BookCard({ book, onOpen, onCategories, onDelete }: Props) {
+export default function BookCard({ book, onOpen, onCategories, onRefreshCover, onDelete }: Props) {
   const t = useT()
   const pct = book.progress ? Math.round(book.progress.percent * 100) : 0
   return (
@@ -40,6 +41,9 @@ export default function BookCard({ book, onOpen, onCategories, onDelete }: Props
           <span className="card-actions">
             <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
               ⌂
+            </button>
+            <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>
+              ↻
             </button>
             <button type="button" title={t('card.delete')} onClick={onDelete}>
               🗑

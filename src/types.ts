@@ -20,6 +20,7 @@ export interface Book {
   progress: Progress | null
   categories: string[]
   contentHash: string | null
+  coverVersion: number
   coverPath: string | null
 }
 
