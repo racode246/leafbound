@@ -12,9 +12,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Leafbound is Windows-only (WebView2, Credential Manager), so every job runs on Windows.
 jobs:
   check:
-    # Leafbound is Windows-only (WebView2, Credential Manager).
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,8 +26,17 @@ jobs:
 
       - name: Install npm packages
         run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      # Type check + production build of the frontend (also gives Tauri its dist/).
+      # App and E2E TypeScript.
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Frontend unit tests
+        run: npm test
+
+      # Production build of the frontend (also gives Tauri its dist/).
       - name: Build frontend
         run: npm run build
 
@@ -54,3 +63,79 @@ jobs:
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked
+
+  # Browser build against the mock backend, in the runner's Edge (no browser download).
+  e2e-mock:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      - name: E2E (mock)
+        run: npm run e2e:mock
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-mock
+          path: |
+            e2e/report/
+            e2e/results/
+          if-no-files-found: ignore
+
+  # The real app (built with an E2E identifier) over WebView2 CDP, with a fake LLM.
+  e2e-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/AppData/Local/ort.pyke.io
+          key: ort-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ort-${{ runner.os }}-
+
+      # The real embedding model (~135 MB); downloaded by the app on a cache miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/e2e-model
+          key: e2e-model-multilingual-e5-small-int8@761b726d
+
+      - name: E2E (app)
+        run: npm run e2e:app
+        env:
+          E2E_MODEL_DIR: ${{ runner.temp }}/e2e-model
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-app
+          path: |
+            e2e/report/
+            e2e/results/
+          if-no-files-found: ignore

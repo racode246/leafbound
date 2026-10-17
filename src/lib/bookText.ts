@@ -1,9 +1,7 @@
 import ePub, { type Book as EpubBook, type Contents, type Rendition } from 'epubjs'
 import type { IndexChunk } from '../types'
+import { chunkRanges } from './chunk'
 
-/** Characters per chunk sent to the embedding model (~512 tokens at most for Japanese). */
-const CHUNK_SIZE = 500
-const CHUNK_OVERLAP = 100
 /** Current-chapter text handed to the LLM. */
 const CHAPTER_CONTEXT_CHARS = 6000
 const CONTEXT_BEFORE_POSITION = 1500
@@ -62,33 +60,6 @@ function domPoint(spans: TextNodeSpan[], offset: number): { node: Text; offset: 
   const span = spans[lo]
   const local = Math.max(0, Math.min(offset - span.start, span.node.length))
   return { node: span.node, offset: local }
-}
-
-const BOUNDARY = /[。．！？!?\n]|\.\s/g
-
-/** [start, end) ranges of roughly CHUNK_SIZE characters that prefer to end at a sentence. */
-export function chunkRanges(text: string, size = CHUNK_SIZE, overlap = CHUNK_OVERLAP): [number, number][] {
-  const out: [number, number][] = []
-  let start = 0
-  while (start < text.length) {
-    let end = Math.min(text.length, start + size)
-    if (end < text.length) {
-      const from = start + Math.floor(size * 0.6)
-      BOUNDARY.lastIndex = from
-      let cut = -1
-      for (let m = BOUNDARY.exec(text); m && m.index < end; m = BOUNDARY.exec(text)) cut = m.index + 1
-      if (cut > from) end = cut
-    }
-    out.push([start, end])
-    if (end >= text.length) break
-    // Begin the overlap at a sentence start when there is one early in it.
-    let next = end - overlap
-    BOUNDARY.lastIndex = next
-    const m = BOUNDARY.exec(text)
-    if (m && m.index + m[0].length < end - overlap / 3) next = m.index + m[0].length
-    start = Math.max(start + 1, next)
-  }
-  return out
 }
 
 interface SectionLike {
