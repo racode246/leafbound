@@ -29,6 +29,10 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
+      # Biome, formatter only (scope and style in biome.json).
+      - name: Format check
+        run: npm run format:check
+
       # App and E2E TypeScript.
       - name: Type check
         run: npm run typecheck

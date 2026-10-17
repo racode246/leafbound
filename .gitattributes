@@ -1,0 +1,6 @@
+# Biome checks these with LF line endings (biome.json), so keep them LF
+# in Windows checkouts too, whatever core.autocrlf says.
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
