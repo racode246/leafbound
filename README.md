@@ -4,7 +4,9 @@
 
 A calm, open-source EPUB reader for Windows, with an AI reading companion that answers questions about the book you are reading.
 
-https://github.com/user-attachments/assets/222f0ce2-ed7d-4502-baf8-69c602d6b3cc
+
+https://github.com/user-attachments/assets/a9ec5861-b565-4ac1-9db6-a431f097cb5b
+
 
 Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript and [epub.js](https://github.com/futurepress/epub.js). It keeps your books in a local library, remembers where you stopped, and stays out of the way while you read. When you want to talk about the book, open **Ask AI** and ask: who a character is, what happened three chapters ago, or how a passage connects to the highlights you made last week.
 
