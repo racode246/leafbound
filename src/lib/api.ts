@@ -1,3 +1,4 @@
+import { getVersion } from '@tauri-apps/api/app'
 import { Channel, convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -10,9 +11,11 @@ import type {
   Book,
   Exchange,
   ImportOutcome,
+  InstallEvent,
   Library,
   PrepareEvent,
-  Settings
+  Settings,
+  UpdateInfo
 } from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { isEpubFile, listenHtml5DragDrop } from './dragDrop'
@@ -98,7 +101,15 @@ const tauriApi: LeafboundApi = {
     channel.onmessage = onEvent
     return invoke<Exchange>('assistant_ask', { request, onEvent: channel })
   },
-  cancelAsk: (requestId) => invoke<void>('assistant_cancel', { requestId })
+  cancelAsk: (requestId) => invoke<void>('assistant_cancel', { requestId }),
+
+  appVersion: () => getVersion(),
+  checkForUpdate: (automatic) => invoke<UpdateInfo | null>('update_check', { automatic }),
+  installUpdate(onEvent) {
+    const channel = new Channel<InstallEvent>()
+    channel.onmessage = onEvent
+    return invoke<void>('update_install', { onEvent: channel })
+  }
 }
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

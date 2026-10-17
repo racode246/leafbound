@@ -5,7 +5,15 @@
  * without Tauri), so the UI can be exercised without the native shell.
  * State lives in memory only; the sample book from /public is pre-loaded.
  */
-import type { Annotation, ApiKeyStatus, Book, Exchange, Library, Settings } from '../types'
+import type {
+  Annotation,
+  ApiKeyStatus,
+  Book,
+  Exchange,
+  Library,
+  Settings,
+  UpdateInfo
+} from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { isEpubFile, listenHtml5DragDrop } from './dragDrop'
 
@@ -54,6 +62,21 @@ const cancelled = new Set<string>()
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** Files chosen through the picker, keyed by the fake path handed back to the app. */
 const pendingPicks = new Map<string, File>()
+
+// Updates: none by default. Set localStorage.lbMockUpdate before the page loads to
+// 'available' (an update that installs), 'badSignature' (one whose download is rejected)
+// or 'checkError' (the update server cannot be reached).
+const MOCK_VERSION = '0.0.0-mock'
+const mockUpdateMode = () =>
+  typeof localStorage === 'undefined' ? null : localStorage.getItem('lbMockUpdate')
+const mockUpdate: UpdateInfo = {
+  version: '9.9.9',
+  currentVersion: MOCK_VERSION,
+  notes:
+    '## [9.9.9](https://github.com/racode246/leafbound/compare/v0.2.0...v9.9.9) (2026-10-18)\n\n' +
+    '### Features\n\n* **reader:** a mock feature ([#99](https://github.com/racode246/leafbound/issues/99)) ([abc1234](https://github.com/racode246/leafbound/commit/abc1234))',
+  date: '2026-10-18T00:00:00Z'
+}
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 const find = (id: string): Book => {
@@ -245,5 +268,35 @@ export const mockApi: LeafboundApi = {
   },
   cancelAsk: async (requestId) => {
     cancelled.add(requestId)
+  },
+
+  appVersion: async () => MOCK_VERSION,
+  async checkForUpdate(automatic) {
+    await sleep(150)
+    const mode = mockUpdateMode()
+    if (mode === 'checkError') {
+      // Like the backend: the automatic check only logs its errors.
+      const error = 'error sending request for url (https://example.invalid/latest.json)'
+      if (automatic) {
+        console.warn('update: check failed:', error)
+        return null
+      }
+      throw error
+    }
+    return mode === 'available' || mode === 'badSignature' ? clone(mockUpdate) : null
+  },
+  async installUpdate(onEvent) {
+    const total = 31_457_280
+    for (let i = 1; i <= 5; i++) {
+      await sleep(100)
+      onEvent({ type: 'progress', downloaded: (total * i) / 5, total })
+    }
+    onEvent({ type: 'installing' })
+    if (mockUpdateMode() === 'badSignature') {
+      await sleep(100)
+      throw 'The signature verification failed'
+    }
+    // The real app exits here and the installer restarts it.
+    await new Promise(() => {})
   }
 }

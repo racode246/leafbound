@@ -51,6 +51,8 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 [Releases ページ](https://github.com/racode246/leafbound/releases)からインストーラ(`Leafbound_<version>_x64-setup.exe`)をダウンロードしてください。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
 
+Leafbound は起動時 (1 日 1 回まで) と、ライブラリのサイドバー下部の **アップデートを確認** を押したときに新しいリリースを確認します。新しいバージョンと変更点を表示し、確認してからインストールして再起動します。アップデートには署名があり、インストール前に検証します。
+
 下記の手順でソースからビルドすることもできます。インストーラが `src-tauri/target/release/bundle/nsis/` に生成されます。
 
 動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。「AI に質問」にはプロバイダの API キー、またはローカルの OpenAI 互換サーバーが必要です。

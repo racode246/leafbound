@@ -2,6 +2,7 @@ import { LayoutGrid, List } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import type { Updates } from '../lib/useUpdates'
 import { ALL_BOOKS, UNCATEGORIZED, type Book, type Library, type Settings } from '../types'
 import Sidebar from './Sidebar'
 import BookCard from './BookCard'
@@ -22,6 +23,7 @@ interface Props {
   onSettings: (patch: Partial<Settings>) => void
   onLibrary: (library: Library) => void
   onBook: (book: Book) => void
+  updates: Updates
 }
 
 type SortKey = 'recent' | 'added' | 'title' | 'author'
@@ -37,7 +39,8 @@ export default function LibraryView({
   onOpen,
   onSettings,
   onLibrary,
-  onBook
+  onBook,
+  updates
 }: Props) {
   const { t, lang } = useI18n()
   const [selected, setSelected] = useState<string>(ALL_BOOKS)
@@ -152,6 +155,7 @@ export default function LibraryView({
           onRename={handleRenameCategory}
           onRemove={handleRemoveCategory}
           onLanguage={(language) => onSettings({ language })}
+          updates={updates}
         />
 
         <main className="library-main">

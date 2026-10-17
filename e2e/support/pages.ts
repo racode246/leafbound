@@ -228,3 +228,33 @@ export class Assistant {
     await expect(this.turns).toHaveCount(before + 1)
   }
 }
+
+/** Update check in the library sidebar and the "Update available" dialog. */
+export class Updates {
+  constructor(readonly page: Page) {}
+
+  get checkButton(): Locator {
+    return this.page.getByRole('button', { name: 'Check for updates' })
+  }
+
+  /** The result of the manual check, under the button. */
+  get status(): Locator {
+    return this.page.locator('.sidebar').getByRole('status')
+  }
+
+  get dialog(): Locator {
+    return this.page.getByRole('dialog', { name: 'Update available' })
+  }
+
+  get installButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Install and restart' })
+  }
+
+  get laterButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Later' })
+  }
+
+  async check(): Promise<void> {
+    await this.checkButton.click()
+  }
+}

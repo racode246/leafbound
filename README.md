@@ -52,6 +52,8 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 Download the installer (`Leafbound_<version>_x64-setup.exe`) from the [Releases page](https://github.com/racode246/leafbound/releases). Builds are not code-signed yet, so Windows SmartScreen may ask you to confirm the first launch.
 
+Leafbound looks for a new release when it starts (at most once a day) and when you click **Check for updates** at the bottom of the library sidebar. It shows the new version and its release notes, and installs it only when you confirm, then restarts. Updates are signed, and the signature is verified before anything is installed.
+
 You can also build an installer from source (see below); the installer is written to `src-tauri/target/release/bundle/nsis/`.
 
 Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in Windows 11). Ask AI also needs an API key for your provider, or a local OpenAI-compatible server.

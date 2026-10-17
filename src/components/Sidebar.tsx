@@ -1,9 +1,11 @@
 import { X } from 'lucide-react'
 import { useState } from 'react'
 import { useT } from '../i18n'
+import type { Updates } from '../lib/useUpdates'
 import { ALL_BOOKS, UNCATEGORIZED, type LanguageSetting } from '../types'
 import Icon from './Icon'
 import LanguageSelect from './LanguageSelect'
+import UpdateCheck from './UpdateCheck'
 
 interface Props {
   categories: string[]
@@ -17,6 +19,7 @@ interface Props {
   onRename: (from: string, to: string) => Promise<void>
   onRemove: (name: string) => Promise<void>
   onLanguage: (value: LanguageSetting) => void
+  updates: Updates
 }
 
 export default function Sidebar({
@@ -30,7 +33,8 @@ export default function Sidebar({
   onAdd,
   onRename,
   onRemove,
-  onLanguage
+  onLanguage,
+  updates
 }: Props) {
   const t = useT()
   const [draft, setDraft] = useState('')
@@ -133,6 +137,7 @@ export default function Sidebar({
 
       <div className="sidebar-foot">
         <LanguageSelect value={language} onChange={onLanguage} className="wide" />
+        <UpdateCheck updates={updates} />
       </div>
     </aside>
   )

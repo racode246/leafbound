@@ -165,6 +165,20 @@ export interface ImportOutcome {
   failed: string[]
 }
 
+/** A newer release announced by the update endpoint (src-tauri/src/updates.rs). */
+export interface UpdateInfo {
+  version: string
+  currentVersion: string
+  /** Release notes (Markdown) from latest.json. */
+  notes: string | null
+  /** RFC 3339 publish date. */
+  date: string | null
+}
+
+export type InstallEvent =
+  | { type: 'progress'; downloaded: number; total: number | null }
+  | { type: 'installing' }
+
 /** Width (CSS px) above which "auto" spread shows two pages. */
 export const MIN_SPREAD_WIDTH = 900
 
