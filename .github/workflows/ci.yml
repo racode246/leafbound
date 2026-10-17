@@ -155,15 +155,16 @@ jobs:
           if-no-files-found: ignore
 
   # The real app (built with an E2E identifier) over WebView2 CDP, with a fake LLM.
-  # The app tests run one at a time (one app per machine), so they are split across two
-  # runners; each builds the app and runs half of the test files.
+  # The app tests run one at a time (one app per machine), so they are split across three
+  # runners; each builds the app and runs a third of the tests (whole files, so a shard can
+  # take more or fewer).
   e2e-app:
-    name: e2e-app (${{ matrix.shard }}/2)
+    name: e2e-app (${{ matrix.shard }}/3)
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -222,7 +223,7 @@ jobs:
           key: e2e-model-multilingual-e5-small-int8@761b726d
 
       - name: E2E (app)
-        run: npm run e2e:app -- --shard=${{ matrix.shard }}/2
+        run: npm run e2e:app -- --shard=${{ matrix.shard }}/3
         env:
           E2E_MODEL_DIR: ${{ runner.temp }}/e2e-model
 
