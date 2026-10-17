@@ -175,7 +175,7 @@ function Shell({ library, setLibrary }: ShellProps) {
 
     return () => {
       disposed = true
-      unlisteners.forEach((un) => un())
+      for (const un of unlisteners) un()
     }
   }, [importPaths, importFiles, setLibrary])
 

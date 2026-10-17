@@ -142,6 +142,7 @@ export default function AssistantPanel({
 
   // Index the book's text once the model is ready. Runs while the panel is hidden too.
   const ready = phase.kind === 'ready'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: chapterFor changes identity with the TOC; indexing should not restart for it
   useEffect(() => {
     if (!ready || !indexed) return
     const control: IndexControl = { cancelled: false }
@@ -165,14 +166,13 @@ export default function AssistantPanel({
     return () => {
       control.cancelled = true
     }
-    // chapterFor changes identity with the TOC; indexing should not restart for it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, indexed, book.id])
 
   useEffect(() => {
     if (!hidden && view === 'chat') inputRef.current?.focus()
   }, [hidden, view])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are triggers, not inputs: keep the conversation scrolled to the bottom as it grows
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
@@ -230,10 +230,11 @@ export default function AssistantPanel({
     text.split(/(\[(?:#\d+|H\d+)\])/g).map((part, i) => {
       const label = /^\[(#\d+|H\d+)\]$/.exec(part)?.[1]
       const source = label ? sources.find((s) => s.label === label) : undefined
-      if (!source || !source.cfi) return part
+      if (!source?.cfi) return part
       return (
         <button
           type="button"
+          // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one answer never reorder, and the same citation can appear twice
           key={i}
           className="ai-cite"
           title={source.excerpt}

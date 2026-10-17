@@ -29,7 +29,9 @@ test('jump to a page, seek with the progress bar, focus the page box with Ctrl+G
   const dragTo = Math.max(1, Math.round(total * 0.8))
   // fill() does not take range inputs; set the value the way a drag does.
   await reader.seek.evaluate((el, v) => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, String(v))
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    if (!setValue) throw new Error('HTMLInputElement has no value setter')
+    setValue.call(el, String(v))
     el.dispatchEvent(new Event('input', { bubbles: true }))
   }, dragTo)
   await expect(page.locator('.seek-tip')).toBeVisible()
@@ -54,7 +56,8 @@ test('the search panel header stays at the top while results scroll', async ({ p
   const m = await panel.evaluate(async (p) => {
     p.scrollTop = 400
     await new Promise((r) => setTimeout(r, 300))
-    const head = p.querySelector('.panel-sticky')!.getBoundingClientRect()
+    const head = p.querySelector('.panel-sticky')?.getBoundingClientRect()
+    if (!head) throw new Error('the search panel has no sticky header')
     return { scrolled: p.scrollTop > 0, panelTop: p.getBoundingClientRect().top, headTop: head.top }
   })
   expect(m.scrolled).toBe(true)

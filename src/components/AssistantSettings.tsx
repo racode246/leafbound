@@ -47,6 +47,7 @@ export default function AssistantSettingsView({
     setBaseUrl(settings.baseUrl)
   }, [settings.model, settings.baseUrl])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: provider is the trigger: switching providers clears the key draft and the last message
   useEffect(() => {
     setKeyDraft('')
     setMessage(null)

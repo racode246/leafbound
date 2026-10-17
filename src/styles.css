@@ -1,3 +1,11 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: the rule only compares the last compound
+   selector, so with plain elements scoped under component classes (`.panel-head button`,
+   `.row:hover .col-actions button`) it reports rules for unrelated components that never match the
+   same element. Where two rules can match the same element, the more specific one is the intended
+   override (dark theme, hover), and specificity picks it regardless of order. Silencing it by
+   reordering would mean sorting every `button`/`input`/`textarea` rule in the file by specificity
+   and splitting each component's styles apart. */
+
 :root {
   --paper: #f6f1e7;
   --paper-2: #efe8da;
