@@ -46,10 +46,12 @@ pub struct AssistantState {
     /// Serialises model download / load so concurrent callers share one run.
     prepare: tauri::async_runtime::Mutex<()>,
     asks: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// Credential Manager service name: the app identifier (see `secrets`).
+    key_service: String,
 }
 
 impl AssistantState {
-    pub fn new(data_dir: &Path) -> Result<Self, String> {
+    pub fn new(data_dir: &Path, identifier: &str) -> Result<Self, String> {
         // A broken database must not keep the reader from starting: fall back to
         // a throwaway in-memory store and say why.
         let db = AssistantDb::open(&data_dir.join("assistant.sqlite")).or_else(|err| {
@@ -67,6 +69,7 @@ impl AssistantState {
             http,
             prepare: tauri::async_runtime::Mutex::new(()),
             asks: Mutex::new(HashMap::new()),
+            key_service: identifier.to_string(),
         })
     }
 
@@ -117,7 +120,7 @@ pub fn assistant_status(state: Assistant<'_>, book_id: String) -> Result<Assista
         model_loaded: state.embedder.is_loaded(),
         download_size: embed::total_download_size(),
         indexed_sections: state.db().indexed_sections(&book_id, MODEL_ID)?,
-        keys: secrets::status(),
+        keys: secrets::status(&state.key_service),
     })
 }
 
@@ -175,15 +178,15 @@ pub async fn assistant_index_section(
 // ---- API keys -----------------------------------------------------------------
 
 #[tauri::command]
-pub fn assistant_set_api_key(provider: String, key: String) -> Result<secrets::KeyStatus, String> {
-    secrets::set(&provider, &key)?;
-    Ok(secrets::status())
+pub fn assistant_set_api_key(state: Assistant<'_>, provider: String, key: String) -> Result<secrets::KeyStatus, String> {
+    secrets::set(&state.key_service, &provider, &key)?;
+    Ok(secrets::status(&state.key_service))
 }
 
 #[tauri::command]
-pub fn assistant_delete_api_key(provider: String) -> Result<secrets::KeyStatus, String> {
-    secrets::delete(&provider)?;
-    Ok(secrets::status())
+pub fn assistant_delete_api_key(state: Assistant<'_>, provider: String) -> Result<secrets::KeyStatus, String> {
+    secrets::delete(&state.key_service, &provider)?;
+    Ok(secrets::status(&state.key_service))
 }
 
 // ---- history ------------------------------------------------------------------
@@ -272,7 +275,7 @@ pub async fn assistant_ask(
         )
     };
     let provider = Provider::parse(&settings.provider)?;
-    let api_key = secrets::get(provider.key_name())?;
+    let api_key = secrets::get(&state.key_service, provider.key_name())?;
     if provider == Provider::Anthropic && api_key.is_none() {
         return Err(ERR_NO_API_KEY.into());
     }

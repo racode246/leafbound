@@ -54,3 +54,25 @@ jobs:
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked
+
+      # End-to-end suites (e2e/). The real app runs with its own identifier; the
+      # embedding model (~135 MB) is downloaded by the app on a cache miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/e2e-model
+          key: e2e-model-multilingual-e5-small-int8@761b726d
+
+      - name: E2E (browser build, mock backend)
+        run: npm run e2e -- mock
+
+      - name: E2E (app)
+        run: npm run e2e -- app
+        env:
+          E2E_MODEL_DIR: ${{ runner.temp }}/e2e-model
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-screenshots
+          path: e2e/.out/
+          if-no-files-found: ignore

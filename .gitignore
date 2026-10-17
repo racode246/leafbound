@@ -13,3 +13,6 @@ Thumbs.db
 
 # private Claude Code workspace (notes, skills)
 .claude/
+
+# E2E screenshots
+e2e/.out/
