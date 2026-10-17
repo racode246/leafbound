@@ -14,19 +14,14 @@
 //! Measured 2026-10-17: before 9/16, question only 9/16, HyDE 14-16/16 (LLM
 //! output varies between runs).
 
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::time::Instant;
+mod common;
 
-use leafbound_lib::assistant::db::{AssistantDb, ChunkInput};
-use leafbound_lib::assistant::embed::Embedder;
+use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 
+use common::BOOK_ID;
 use leafbound_lib::assistant::llm::{stream_chat, ChatRequest, Provider, Role};
 use leafbound_lib::assistant::{find_passages, prompt, secrets, CHUNK_INDEX};
-
-const SIZE: usize = 500;
-const OVERLAP: usize = 100;
 
 /// (question, chapters that answer it; 1-based)
 const QUESTIONS: &[(&str, &[usize])] = &[
@@ -72,152 +67,12 @@ const QUESTIONS: &[(&str, &[usize])] = &[
     ("エリザベスはペンバリーをどう思った？", &[43]),
 ];
 
-fn model_dir() -> PathBuf {
-    let appdata = std::env::var("APPDATA").expect("APPDATA");
-    PathBuf::from(appdata)
-        .join("dev.leafbound.app")
-        .join("models")
-        .join("multilingual-e5-small")
-}
-
-/// Chapters of the Gutenberg text, illustration captions removed.
-fn chapters(raw: &str) -> Vec<String> {
-    let start = raw
-        .find("It is a truth universally acknowledged")
-        .expect("start of text");
-    let end = raw
-        .find("*** END OF THE PROJECT GUTENBERG")
-        .expect("end of text");
-    let mut text = String::new();
-    let body = &raw[start..end];
-    let mut depth = 0usize;
-    let mut i = 0;
-    let bytes: Vec<char> = body.chars().collect();
-    while i < bytes.len() {
-        let rest: String = bytes[i..bytes.len().min(i + 13)].iter().collect();
-        if depth == 0 && rest == "[Illustration" {
-            depth = 1;
-            i += 1;
-            continue;
-        }
-        if depth > 0 {
-            match bytes[i] {
-                '[' => depth += 1,
-                ']' => depth -= 1,
-                _ => {}
-            }
-        } else {
-            text.push(bytes[i]);
-        }
-        i += 1;
-    }
-    let mut out = vec![String::new()];
-    for line in text.lines() {
-        let t = line.trim();
-        let upper = t.to_uppercase();
-        let is_heading = upper.starts_with("CHAPTER ")
-            && upper[8..]
-                .trim_end_matches('.')
-                .chars()
-                .all(|c| "IVXLC".contains(c))
-            && upper.len() > 8;
-        if is_heading {
-            out.push(String::new());
-        } else {
-            let ch = out.last_mut().unwrap();
-            ch.push_str(line);
-            ch.push('\n');
-        }
-    }
-    out.into_iter()
-        .map(|c| {
-            c.split("\n\n")
-                .map(|p| p.split_whitespace().collect::<Vec<_>>().join(" "))
-                .filter(|p| !p.is_empty())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .collect()
-}
-
-/// Same split as chunkRanges() in src/lib/bookText.ts.
-fn chunk(text: &str) -> Vec<String> {
-    let chars: Vec<char> = text.chars().collect();
-    let boundary = |i: usize| {
-        matches!(chars[i], '。' | '．' | '！' | '？' | '!' | '?' | '\n')
-            || (chars[i] == '.' && chars.get(i + 1).is_some_and(|c| c.is_whitespace()))
-    };
-    let mut out = Vec::new();
-    let mut start = 0;
-    while start < chars.len() {
-        let mut end = (start + SIZE).min(chars.len());
-        if end < chars.len() {
-            let from = start + SIZE * 6 / 10;
-            if let Some(cut) = (from..end).rev().find(|&i| boundary(i)) {
-                if cut + 1 > from {
-                    end = cut + 1;
-                }
-            }
-        }
-        let body: String = chars[start..end]
-            .iter()
-            .collect::<String>()
-            .trim()
-            .to_string();
-        if body.chars().count() >= 10 {
-            out.push(body);
-        }
-        if end >= chars.len() {
-            break;
-        }
-        let mut next = end - OVERLAP;
-        if let Some(b) = (next..end - OVERLAP / 3).find(|&i| boundary(i)) {
-            next = b + 1;
-        }
-        start = next.max(start + 1);
-    }
-    out
-}
-
 #[test]
 #[ignore]
 fn retrieval_finds_the_answering_chapter() {
-    let path = std::env::var("LEAFBOUND_EVAL_TEXT").expect("set LEAFBOUND_EVAL_TEXT to pg1342.txt");
-    let raw = std::fs::read_to_string(path).unwrap();
-    let chapters = chapters(&raw);
-    assert_eq!(chapters.len(), 61, "Pride and Prejudice has 61 chapters");
-
-    let embedder = Embedder::new(model_dir());
-    assert!(
-        embedder.is_downloaded(),
-        "run tests/embedding_model.rs first to download the model"
-    );
-    embedder.load().unwrap();
-
-    let mut db = AssistantDb::open_in_memory().unwrap();
-    let t = Instant::now();
-    let mut total = 0;
-    for (i, text) in chapters.iter().enumerate() {
-        let texts = chunk(text);
-        total += texts.len();
-        let vectors = embedder.embed_passages(&texts).unwrap();
-        let rows: Vec<(ChunkInput, Vec<f32>)> = texts
-            .into_iter()
-            .zip(vectors)
-            .map(|(text, v)| {
-                (
-                    ChunkInput {
-                        text,
-                        cfi: String::new(),
-                    },
-                    v,
-                )
-            })
-            .collect();
-        db.store_section("book", CHUNK_INDEX, i as i64 + 1, "", "", &rows)
-            .unwrap();
-    }
-    println!("indexed {total} chunks in {:?}", t.elapsed());
+    let chapters = common::eval_chapters();
+    let embedder = common::loaded_embedder();
+    let db = common::index_book(&embedder, &chapters);
 
     let key = secrets::get(secrets::APP_SERVICE, "anthropic")
         .unwrap()
@@ -255,9 +110,9 @@ fn retrieval_finds_the_answering_chapter() {
             .unwrap()
             .remove(0);
         let got = [
-            sections(db.search_chunks("book", CHUNK_INDEX, &q, 6, None).unwrap()),
-            sections(find_passages(&db, "book", &q, None).unwrap()),
-            sections(find_passages(&db, "book", &h, None).unwrap()),
+            sections(db.search_chunks(BOOK_ID, CHUNK_INDEX, &q, 6, None).unwrap()),
+            sections(find_passages(&db, BOOK_ID, &q, None).unwrap()),
+            sections(find_passages(&db, BOOK_ID, &h, None).unwrap()),
         ];
         let mut marks = String::new();
         let mut detail = String::new();
