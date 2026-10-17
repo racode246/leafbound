@@ -76,7 +76,11 @@ pub struct AssistantSettings {
 
 impl Default for AssistantSettings {
     fn default() -> Self {
-        Self { provider: "anthropic".into(), model: "claude-sonnet-5-5".into(), base_url: String::new() }
+        Self {
+            provider: "anthropic".into(),
+            model: "claude-sonnet-5-5".into(),
+            base_url: String::new(),
+        }
     }
 }
 
@@ -168,7 +172,9 @@ impl ImportDirs {
         Ok(PreparedImport {
             id,
             hash,
-            title: title.filter(|t| !t.trim().is_empty()).unwrap_or(fallback_title),
+            title: title
+                .filter(|t| !t.trim().is_empty())
+                .unwrap_or(fallback_title),
             author: author.unwrap_or_default(),
             file_name,
             has_cover,
@@ -202,7 +208,8 @@ impl ImportDirs {
             .map(|n| n.to_string_lossy().into_owned())
             .filter(|n| n.to_ascii_lowercase().ends_with(".epub"))
             .ok_or_else(|| format!("not an EPUB file: {file_name}"))?;
-        let staging = std::env::temp_dir().join(format!("leafbound-import-{}", uuid::Uuid::new_v4()));
+        let staging =
+            std::env::temp_dir().join(format!("leafbound-import-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&staging).map_err(|e| format!("staging failed: {e}"))?;
         let tmp = staging.join(&safe_name);
         let result = fs::write(&tmp, bytes)
@@ -284,7 +291,13 @@ impl LibraryStore {
             Ok(raw) => serde_json::from_str::<Persisted>(&raw).unwrap_or_default(),
             Err(_) => Persisted::default(),
         };
-        let mut store = Self { books_dir, covers_dir, annotations_dir, file, data };
+        let mut store = Self {
+            books_dir,
+            covers_dir,
+            annotations_dir,
+            file,
+            data,
+        };
         store.backfill_hashes();
         Ok(store)
     }
@@ -345,7 +358,9 @@ impl LibraryStore {
             return Err(format!("unknown book: {id}"));
         }
         match fs::read_to_string(self.annotations_path(id)) {
-            Ok(raw) => serde_json::from_str(&raw).map_err(|e| format!("annotations unreadable: {e}")),
+            Ok(raw) => {
+                serde_json::from_str(&raw).map_err(|e| format!("annotations unreadable: {e}"))
+            }
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(format!("read failed: {e}")),
         }
@@ -468,15 +483,26 @@ impl LibraryStore {
     pub fn save_progress(&mut self, id: &str, cfi: String, percent: f64) -> Result<(), String> {
         let stamp = now();
         let book = self.book_mut(id)?;
-        book.progress = Some(Progress { cfi, percent: percent.clamp(0.0, 1.0), updated_at: stamp.clone() });
+        book.progress = Some(Progress {
+            cfi,
+            percent: percent.clamp(0.0, 1.0),
+            updated_at: stamp.clone(),
+        });
         book.last_opened_at = Some(stamp);
         self.save()
     }
 
-    pub fn set_book_categories(&mut self, id: &str, categories: Vec<String>) -> Result<Book, String> {
+    pub fn set_book_categories(
+        &mut self,
+        id: &str,
+        categories: Vec<String>,
+    ) -> Result<Book, String> {
         let known = self.data.categories.clone();
         let book = self.book_mut(id)?;
-        book.categories = categories.into_iter().filter(|c| known.contains(c)).collect();
+        book.categories = categories
+            .into_iter()
+            .filter(|c| known.contains(c))
+            .collect();
         let out = book.clone();
         self.save()?;
         Ok(self.with_cover(&out))

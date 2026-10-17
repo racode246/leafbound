@@ -188,10 +188,16 @@ impl AssistantDb {
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         // Chunks from an older index version (other model or chunker) are dead weight.
-        tx.execute("DELETE FROM chunks WHERE book_id = ?1 AND model <> ?2", params![book_id, model])
-            .map_err(|e| e.to_string())?;
-        tx.execute("DELETE FROM indexed_sections WHERE book_id = ?1 AND model <> ?2", params![book_id, model])
-            .map_err(|e| e.to_string())?;
+        tx.execute(
+            "DELETE FROM chunks WHERE book_id = ?1 AND model <> ?2",
+            params![book_id, model],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute(
+            "DELETE FROM indexed_sections WHERE book_id = ?1 AND model <> ?2",
+            params![book_id, model],
+        )
+        .map_err(|e| e.to_string())?;
         tx.execute(
             "DELETE FROM chunks WHERE book_id = ?1 AND model = ?2 AND section = ?3",
             params![book_id, model, section],
@@ -247,7 +253,13 @@ impl AssistantDb {
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(
-                params![book_id, model, vector_blob(query), exclude_section, limit as i64],
+                params![
+                    book_id,
+                    model,
+                    vector_blob(query),
+                    exclude_section,
+                    limit as i64
+                ],
                 Self::chunk_from_row,
             )
             .map_err(|e| e.to_string())?;
@@ -271,7 +283,9 @@ impl AssistantDb {
     pub fn highlights(&self, book_id: &str) -> Result<HashMap<String, HighlightRow>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT annotation_id, text, note, cfi, model FROM highlights WHERE book_id = ?1")
+            .prepare(
+                "SELECT annotation_id, text, note, cfi, model FROM highlights WHERE book_id = ?1",
+            )
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(params![book_id], |r| {
@@ -292,7 +306,12 @@ impl AssistantDb {
         Ok(out)
     }
 
-    pub fn upsert_highlight(&self, book_id: &str, row: &HighlightRow, embedding: &[f32]) -> Result<(), String> {
+    pub fn upsert_highlight(
+        &self,
+        book_id: &str,
+        row: &HighlightRow,
+        embedding: &[f32],
+    ) -> Result<(), String> {
         self.conn
             .execute(
                 "INSERT INTO highlights (book_id, annotation_id, model, text, note, cfi, embedding)
@@ -342,7 +361,13 @@ impl AssistantDb {
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(
-                params![book_id, model, vector_blob(query), max_distance, limit as i64],
+                params![
+                    book_id,
+                    model,
+                    vector_blob(query),
+                    max_distance,
+                    limit as i64
+                ],
                 |r| {
                     Ok(HighlightHit {
                         text: r.get(0)?,
@@ -394,7 +419,12 @@ impl AssistantDb {
     }
 
     /// The last `limit` exchanges of a session, oldest first.
-    pub fn recent_exchanges(&self, book_id: &str, session_id: &str, limit: usize) -> Result<Vec<Exchange>, String> {
+    pub fn recent_exchanges(
+        &self,
+        book_id: &str,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<Exchange>, String> {
         let mut stmt = self
             .conn
             .prepare(
@@ -404,7 +434,10 @@ impl AssistantDb {
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(params![book_id, session_id, limit as i64], Self::exchange_from_row)
+            .query_map(
+                params![book_id, session_id, limit as i64],
+                Self::exchange_from_row,
+            )
             .map_err(|e| e.to_string())?;
         let mut out: Vec<Exchange> = rows.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
         out.reverse();
@@ -463,7 +496,11 @@ impl AssistantDb {
             .map_err(|e| e.to_string())
     }
 
-    pub fn session_exchanges(&self, book_id: &str, session_id: &str) -> Result<Vec<Exchange>, String> {
+    pub fn session_exchanges(
+        &self,
+        book_id: &str,
+        session_id: &str,
+    ) -> Result<Vec<Exchange>, String> {
         self.recent_exchanges(book_id, session_id, usize::MAX >> 1)
     }
 
@@ -478,8 +515,11 @@ impl AssistantDb {
     pub fn delete_book(&mut self, book_id: &str) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         for table in ["chunks", "indexed_sections", "highlights", "exchanges"] {
-            tx.execute(&format!("DELETE FROM {table} WHERE book_id = ?1"), params![book_id])
-                .map_err(|e| e.to_string())?;
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE book_id = ?1"),
+                params![book_id],
+            )
+            .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())
     }
@@ -490,7 +530,10 @@ mod tests {
     use super::*;
 
     fn chunk(text: &str) -> ChunkInput {
-        ChunkInput { text: text.into(), cfi: format!("epubcfi(/6/2!/4/{})", text.len()) }
+        ChunkInput {
+            text: text.into(),
+            cfi: format!("epubcfi(/6/2!/4/{})", text.len()),
+        }
     }
 
     fn exchange(id: &str, session: &str, at: &str) -> Exchange {
@@ -507,29 +550,62 @@ mod tests {
     #[test]
     fn chunk_search_orders_by_cosine_distance_and_excludes_section() {
         let mut db = AssistantDb::open_in_memory().unwrap();
-        db.store_section("b", "m", 0, "a.xhtml", "One", &[(chunk("east"), vec![1.0, 0.0]), (chunk("north"), vec![0.0, 1.0])])
-            .unwrap();
-        db.store_section("b", "m", 1, "b.xhtml", "Two", &[(chunk("north-east"), vec![0.7, 0.7])]).unwrap();
-        db.store_section("other", "m", 0, "a.xhtml", "One", &[(chunk("east too"), vec![1.0, 0.0])]).unwrap();
+        db.store_section(
+            "b",
+            "m",
+            0,
+            "a.xhtml",
+            "One",
+            &[
+                (chunk("east"), vec![1.0, 0.0]),
+                (chunk("north"), vec![0.0, 1.0]),
+            ],
+        )
+        .unwrap();
+        db.store_section(
+            "b",
+            "m",
+            1,
+            "b.xhtml",
+            "Two",
+            &[(chunk("north-east"), vec![0.7, 0.7])],
+        )
+        .unwrap();
+        db.store_section(
+            "other",
+            "m",
+            0,
+            "a.xhtml",
+            "One",
+            &[(chunk("east too"), vec![1.0, 0.0])],
+        )
+        .unwrap();
 
         let hits = db.search_chunks("b", "m", &[1.0, 0.1], 10, None).unwrap();
         let texts: Vec<_> = hits.iter().map(|h| h.text.as_str()).collect();
         assert_eq!(texts, ["east", "north-east", "north"]);
 
-        let hits = db.search_chunks("b", "m", &[1.0, 0.1], 10, Some(0)).unwrap();
+        let hits = db
+            .search_chunks("b", "m", &[1.0, 0.1], 10, Some(0))
+            .unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].href, "b.xhtml");
 
         // Other models are invisible.
-        assert!(db.search_chunks("b", "other-model", &[1.0, 0.0], 10, None).unwrap().is_empty());
+        assert!(db
+            .search_chunks("b", "other-model", &[1.0, 0.0], 10, None)
+            .unwrap()
+            .is_empty());
         assert_eq!(db.indexed_sections("b", "m").unwrap(), vec![0, 1]);
     }
 
     #[test]
     fn storing_a_section_again_replaces_its_chunks() {
         let mut db = AssistantDb::open_in_memory().unwrap();
-        db.store_section("b", "m", 0, "a", "", &[(chunk("old"), vec![1.0, 0.0])]).unwrap();
-        db.store_section("b", "m", 0, "a", "", &[(chunk("new"), vec![1.0, 0.0])]).unwrap();
+        db.store_section("b", "m", 0, "a", "", &[(chunk("old"), vec![1.0, 0.0])])
+            .unwrap();
+        db.store_section("b", "m", 0, "a", "", &[(chunk("new"), vec![1.0, 0.0])])
+            .unwrap();
         let hits = db.search_chunks("b", "m", &[1.0, 0.0], 10, None).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].text, "new");
@@ -538,10 +614,15 @@ mod tests {
     #[test]
     fn indexing_under_a_new_key_drops_the_old_index() {
         let mut db = AssistantDb::open_in_memory().unwrap();
-        db.store_section("b", "v1", 0, "a", "", &[(chunk("old"), vec![1.0, 0.0])]).unwrap();
-        db.store_section("b", "v2", 0, "a", "", &[(chunk("new"), vec![1.0, 0.0])]).unwrap();
+        db.store_section("b", "v1", 0, "a", "", &[(chunk("old"), vec![1.0, 0.0])])
+            .unwrap();
+        db.store_section("b", "v2", 0, "a", "", &[(chunk("new"), vec![1.0, 0.0])])
+            .unwrap();
         assert!(db.indexed_sections("b", "v1").unwrap().is_empty());
-        assert!(db.search_chunks("b", "v1", &[1.0, 0.0], 10, None).unwrap().is_empty());
+        assert!(db
+            .search_chunks("b", "v1", &[1.0, 0.0], 10, None)
+            .unwrap()
+            .is_empty());
         let all = db.search_chunks("b", "v2", &[1.0, 0.0], 10, None).unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].text, "new");
@@ -570,14 +651,31 @@ mod tests {
     #[test]
     fn window_returns_latest_exchanges_of_the_session_oldest_first() {
         let db = AssistantDb::open_in_memory().unwrap();
-        for (i, at) in ["2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", "2026-01-01T00:00:03Z"].iter().enumerate() {
+        for (i, at) in [
+            "2026-01-01T00:00:01Z",
+            "2026-01-01T00:00:02Z",
+            "2026-01-01T00:00:03Z",
+        ]
+        .iter()
+        .enumerate()
+        {
             let ex = exchange(&format!("e{i}"), "s1", at);
-            db.insert_exchange(NewExchange { exchange: &ex, book_id: "b", model: "m", embedding: &[1.0, 0.0] })
-                .unwrap();
+            db.insert_exchange(NewExchange {
+                exchange: &ex,
+                book_id: "b",
+                model: "m",
+                embedding: &[1.0, 0.0],
+            })
+            .unwrap();
         }
         let other = exchange("x", "s0", "2026-01-01T00:00:04Z");
-        db.insert_exchange(NewExchange { exchange: &other, book_id: "b", model: "m", embedding: &[1.0, 0.0] })
-            .unwrap();
+        db.insert_exchange(NewExchange {
+            exchange: &other,
+            book_id: "b",
+            model: "m",
+            embedding: &[1.0, 0.0],
+        })
+        .unwrap();
 
         let window = db.recent_exchanges("b", "s1", 2).unwrap();
         let ids: Vec<_> = window.iter().map(|e| e.id.as_str()).collect();
@@ -585,7 +683,14 @@ mod tests {
         assert_eq!(db.latest_session("b").unwrap().as_deref(), Some("s0"));
 
         let similar = db
-            .search_exchanges("b", "m", &[1.0, 0.0], 2, 0.5, &["e1".to_string(), "e2".to_string()])
+            .search_exchanges(
+                "b",
+                "m",
+                &[1.0, 0.0],
+                2,
+                0.5,
+                &["e1".to_string(), "e2".to_string()],
+            )
             .unwrap();
         let ids: Vec<_> = similar.iter().map(|e| e.id.as_str()).collect();
         assert_eq!(ids.len(), 2);
@@ -595,9 +700,16 @@ mod tests {
     #[test]
     fn delete_book_removes_every_row() {
         let mut db = AssistantDb::open_in_memory().unwrap();
-        db.store_section("b", "m", 0, "a", "", &[(chunk("x"), vec![1.0])]).unwrap();
+        db.store_section("b", "m", 0, "a", "", &[(chunk("x"), vec![1.0])])
+            .unwrap();
         let ex = exchange("e", "s", "2026-01-01T00:00:00Z");
-        db.insert_exchange(NewExchange { exchange: &ex, book_id: "b", model: "m", embedding: &[1.0] }).unwrap();
+        db.insert_exchange(NewExchange {
+            exchange: &ex,
+            book_id: "b",
+            model: "m",
+            embedding: &[1.0],
+        })
+        .unwrap();
         db.delete_book("b").unwrap();
         assert!(db.indexed_sections("b", "m").unwrap().is_empty());
         assert!(db.latest_session("b").unwrap().is_none());

@@ -57,7 +57,10 @@ pub fn extract_cover(doc: &mut Doc) -> Option<Vec<u8>> {
         .filter(|(id, r)| {
             r.mime.starts_with("image/")
                 && (id.to_ascii_lowercase().contains("cover")
-                    || r.path.to_string_lossy().to_ascii_lowercase().contains("cover"))
+                    || r.path
+                        .to_string_lossy()
+                        .to_ascii_lowercase()
+                        .contains("cover"))
         })
         .map(|(id, _)| id.clone())
         .collect();
@@ -139,7 +142,10 @@ fn image_references(html: &str) -> Vec<String> {
         let mut from = 0;
         while let Some(pos) = lower[from..].find(tag) {
             let start = from + pos;
-            let end = lower[start..].find('>').map(|e| start + e).unwrap_or(lower.len());
+            let end = lower[start..]
+                .find('>')
+                .map(|e| start + e)
+                .unwrap_or(lower.len());
             let slice = &html[start..end];
             for attr in ["xlink:href=", "src=", "href="] {
                 if let Some(v) = attr_value(slice, attr) {
@@ -228,12 +234,18 @@ mod tests {
     fn finds_image_references_in_document_order() {
         let html = r#"<body><svg><image xlink:href="img/x.png" width="100%"/></svg>
             <div><img class="c" src="../Images/Cover%20Big.jpg"/></div></body>"#;
-        assert_eq!(image_references(html), vec!["img/x.png", "../Images/Cover Big.jpg"]);
+        assert_eq!(
+            image_references(html),
+            vec!["img/x.png", "../Images/Cover Big.jpg"]
+        );
     }
 
     #[test]
     fn resolves_relative_paths() {
-        let p = resolve(Path::new("OEBPS/text/cover.xhtml"), "../Images/cover.jpg#frag");
+        let p = resolve(
+            Path::new("OEBPS/text/cover.xhtml"),
+            "../Images/cover.jpg#frag",
+        );
         assert_eq!(p, PathBuf::from("OEBPS").join("Images").join("cover.jpg"));
         let p = resolve(Path::new("cover.xhtml"), "./img.png");
         assert_eq!(p, PathBuf::from("img.png"));

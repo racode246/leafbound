@@ -3,14 +3,17 @@ use std::path::Path;
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::State;
 
-use crate::library::{Annotation, Book, Import, ImportOutcome, Library, Settings};
 use crate::assistant::AssistantState;
+use crate::library::{Annotation, Book, Import, ImportOutcome, Library, Settings};
 use crate::{AppState, PendingOpen};
 
 type Store<'a> = State<'a, AppState>;
 
 fn lock<'a>(state: &'a Store<'a>) -> std::sync::MutexGuard<'a, crate::library::LibraryStore> {
-    state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    state
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[tauri::command]
@@ -46,7 +49,10 @@ pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<Import
 /// Imports one EPUB sent as a raw request body. The file name travels in the
 /// `x-file-name` header (percent-encoded) because HTML5 drops carry no path.
 #[tauri::command]
-pub async fn import_book_bytes(state: Store<'_>, request: Request<'_>) -> Result<ImportOutcome, String> {
+pub async fn import_book_bytes(
+    state: Store<'_>,
+    request: Request<'_>,
+) -> Result<ImportOutcome, String> {
     let name = request
         .headers()
         .get("x-file-name")
@@ -119,17 +125,30 @@ pub async fn read_book(state: Store<'_>, id: String) -> Result<Response, String>
 }
 
 #[tauri::command]
-pub fn save_progress(state: Store<'_>, id: String, cfi: String, percent: f64) -> Result<(), String> {
+pub fn save_progress(
+    state: Store<'_>,
+    id: String,
+    cfi: String,
+    percent: f64,
+) -> Result<(), String> {
     lock(&state).save_progress(&id, cfi, percent)
 }
 
 #[tauri::command]
-pub fn set_book_categories(state: Store<'_>, id: String, categories: Vec<String>) -> Result<Book, String> {
+pub fn set_book_categories(
+    state: Store<'_>,
+    id: String,
+    categories: Vec<String>,
+) -> Result<Book, String> {
     lock(&state).set_book_categories(&id, categories)
 }
 
 #[tauri::command]
-pub fn delete_book(state: Store<'_>, assistant: State<'_, AssistantState>, id: String) -> Result<(), String> {
+pub fn delete_book(
+    state: Store<'_>,
+    assistant: State<'_, AssistantState>,
+    id: String,
+) -> Result<(), String> {
     lock(&state).delete_book(&id)?;
     assistant.forget_book(&id);
     Ok(())
@@ -161,7 +180,11 @@ pub fn get_annotations(state: Store<'_>, id: String) -> Result<Vec<Annotation>, 
 }
 
 #[tauri::command]
-pub fn save_annotations(state: Store<'_>, id: String, annotations: Vec<Annotation>) -> Result<(), String> {
+pub fn save_annotations(
+    state: Store<'_>,
+    id: String,
+    annotations: Vec<Annotation>,
+) -> Result<(), String> {
     lock(&state).save_annotations(&id, &annotations)
 }
 

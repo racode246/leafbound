@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use fastembed::{
-    InitOptionsUserDefined, Pooling, QuantizationMode, TextEmbedding, TokenizerFiles, UserDefinedEmbeddingModel,
+    InitOptionsUserDefined, Pooling, QuantizationMode, TextEmbedding, TokenizerFiles,
+    UserDefinedEmbeddingModel,
 };
 use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
@@ -71,7 +72,10 @@ pub struct Embedder {
 
 impl Embedder {
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir, model: Mutex::new(None) }
+        Self {
+            dir,
+            model: Mutex::new(None),
+        }
     }
 
     /// True when every model file has been downloaded and verified. Files are
@@ -85,7 +89,11 @@ impl Embedder {
     }
 
     /// Downloads missing files, reporting `(downloaded, total)` bytes.
-    pub async fn download(&self, client: &reqwest::Client, mut progress: impl FnMut(u64, u64)) -> Result<(), String> {
+    pub async fn download(
+        &self,
+        client: &reqwest::Client,
+        mut progress: impl FnMut(u64, u64),
+    ) -> Result<(), String> {
         tokio::fs::create_dir_all(&self.dir)
             .await
             .map_err(|e| format!("model dir: {e}"))?;
@@ -111,11 +119,16 @@ impl Embedder {
 
     /// Builds the ONNX session (blocking; call from a blocking thread).
     pub fn load(&self) -> Result<(), String> {
-        let mut guard = self.model.lock().map_err(|_| "embedder poisoned".to_string())?;
+        let mut guard = self
+            .model
+            .lock()
+            .map_err(|_| "embedder poisoned".to_string())?;
         if guard.is_some() {
             return Ok(());
         }
-        let read = |name: &str| std::fs::read(self.dir.join(name)).map_err(|e| format!("read {name}: {e}"));
+        let read = |name: &str| {
+            std::fs::read(self.dir.join(name)).map_err(|e| format!("read {name}: {e}"))
+        };
         let tokenizer_files = TokenizerFiles {
             tokenizer_file: read("tokenizer.json")?,
             config_file: read("config.json")?,
@@ -135,13 +148,23 @@ impl Embedder {
     /// Embeds texts one at a time: the int8 model is dynamically quantized, so
     /// batching would make a vector depend on its batch neighbours.
     fn embed_prefixed(&self, prefix: &str, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
-        let mut guard = self.model.lock().map_err(|_| "embedder poisoned".to_string())?;
-        let model = guard.as_mut().ok_or_else(|| "embedding model is not loaded".to_string())?;
+        let mut guard = self
+            .model
+            .lock()
+            .map_err(|_| "embedder poisoned".to_string())?;
+        let model = guard
+            .as_mut()
+            .ok_or_else(|| "embedding model is not loaded".to_string())?;
         let mut out = Vec::with_capacity(texts.len());
         for text in texts {
             let input = [format!("{prefix}{text}")];
-            let mut v = model.embed(&input, None).map_err(|e| format!("embedding failed: {e}"))?;
-            out.push(v.pop().ok_or_else(|| "embedding returned nothing".to_string())?);
+            let mut v = model
+                .embed(&input, None)
+                .map_err(|e| format!("embedding failed: {e}"))?;
+            out.push(
+                v.pop()
+                    .ok_or_else(|| "embedding returned nothing".to_string())?,
+            );
         }
         Ok(out)
     }
@@ -180,11 +203,15 @@ async fn fetch_verified(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| format!("download interrupted ({}): {e}", file.remote))?;
         hasher.update(&chunk);
-        out.write_all(&chunk).await.map_err(|e| format!("write failed: {e}"))?;
+        out.write_all(&chunk)
+            .await
+            .map_err(|e| format!("write failed: {e}"))?;
         received += chunk.len() as u64;
         progress(received);
     }
-    out.flush().await.map_err(|e| format!("write failed: {e}"))?;
+    out.flush()
+        .await
+        .map_err(|e| format!("write failed: {e}"))?;
     drop(out);
     let digest = format!("{:x}", hasher.finalize());
     if digest != file.sha256 {
