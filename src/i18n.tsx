@@ -55,10 +55,10 @@ const ja = {
   'picker.new': '新規カテゴリ',
   'picker.create': '作成',
 
-  'reader.back': '← ライブラリ',
   'reader.backTitle': 'ライブラリへ戻る',
   'reader.toc': '目次',
   'reader.display': 'Aa 表示',
+  'reader.displayTip': '表示',
   'reader.prev': '前のページ',
   'reader.next': '次のページ',
   'reader.loading': '読み込み中…',
@@ -71,6 +71,7 @@ const ja = {
   'toc.empty': '目次がありません。',
 
   'reader.search': '検索',
+  'reader.searchTip': '検索 (Ctrl+F)',
   'reader.highlights': 'ハイライト',
   'search.title': '本文を検索',
   'search.placeholder': '検索語を入力して Enter',
@@ -243,10 +244,10 @@ const en: Record<Key, string> = {
   'picker.new': 'New category',
   'picker.create': 'Create',
 
-  'reader.back': '← Library',
   'reader.backTitle': 'Back to library',
   'reader.toc': 'Contents',
   'reader.display': 'Aa Display',
+  'reader.displayTip': 'Display',
   'reader.prev': 'Previous page',
   'reader.next': 'Next page',
   'reader.loading': 'Loading…',
@@ -259,6 +260,7 @@ const en: Record<Key, string> = {
   'toc.empty': 'No table of contents.',
 
   'reader.search': 'Search',
+  'reader.searchTip': 'Search (Ctrl+F)',
   'reader.highlights': 'Highlights',
   'search.title': 'Search in book',
   'search.placeholder': 'Type a query and press Enter',
