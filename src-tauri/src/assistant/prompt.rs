@@ -60,7 +60,10 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     if !input.author.trim().is_empty() {
         system.push_str(&format!("Author: {}\n", input.author));
     }
-    system.push_str(&format!("Reading position: {}%\n", (input.percent * 100.0).round() as i64));
+    system.push_str(&format!(
+        "Reading position: {}%\n",
+        (input.percent * 100.0).round() as i64
+    ));
     if let Some(ch) = input.chapter_title.filter(|c| !c.trim().is_empty()) {
         system.push_str(&format!("Current chapter: {ch}\n"));
     }
@@ -131,13 +134,21 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     }
     messages.push((Role::User, input.question.to_string()));
 
-    Prompt { system, messages, sources }
+    Prompt {
+        system,
+        messages,
+        sources,
+    }
 }
 
 /// System prompt for the search step: the model writes the passage it expects
 /// would answer the question, and that text is embedded to find the real one.
 pub fn hypothetical_passage(title: &str, author: &str, chapter_text: &str) -> String {
-    let by = if author.trim().is_empty() { String::new() } else { format!(" by {}", author.trim()) };
+    let by = if author.trim().is_empty() {
+        String::new()
+    } else {
+        format!(" by {}", author.trim())
+    };
     format!(
         "You help search inside the book \"{title}\"{by}. Write the passage of the book that would answer the \
          user's question: 2-4 sentences of narrative text in the book's own language and style (see the excerpt), \
@@ -210,7 +221,9 @@ mod tests {
 
         assert!(prompt.system.contains("Reading position: 12%"));
         assert!(prompt.system.contains("[#1] (chapter: 第二章)"));
-        assert!(prompt.system.contains("[H1] \"どこで生れたかとんと見当がつかぬ。\""));
+        assert!(prompt
+            .system
+            .contains("[H1] \"どこで生れたかとんと見当がつかぬ。\""));
         assert!(prompt.system.contains("Reader's note: 冒頭"));
         assert!(prompt.system.contains("Q: 前の質問"));
         assert_eq!(prompt.sources.len(), 2);
@@ -218,7 +231,16 @@ mod tests {
         assert_eq!(prompt.sources[1].label, "H1");
 
         let roles: Vec<_> = prompt.messages.iter().map(|(r, _)| *r).collect();
-        assert_eq!(roles, [Role::User, Role::Assistant, Role::User, Role::Assistant, Role::User]);
+        assert_eq!(
+            roles,
+            [
+                Role::User,
+                Role::Assistant,
+                Role::User,
+                Role::Assistant,
+                Role::User
+            ]
+        );
         assert_eq!(prompt.messages.last().unwrap().1, "猫の名前は？");
     }
 
@@ -236,7 +258,13 @@ mod tests {
             window: &[],
             question: "q",
         });
-        for tag in ["<current_chapter>", "<passages>", "<highlights>", "<earlier_conversations>", "Author:"] {
+        for tag in [
+            "<current_chapter>",
+            "<passages>",
+            "<highlights>",
+            "<earlier_conversations>",
+            "Author:",
+        ] {
             assert!(!prompt.system.contains(tag), "{tag}");
         }
         assert_eq!(prompt.messages.len(), 1);

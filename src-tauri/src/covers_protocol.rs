@@ -14,7 +14,10 @@ use crate::AppState;
 
 pub const SCHEME: &str = "lbcover";
 
-pub fn handle<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
+pub fn handle<R: Runtime>(
+    ctx: UriSchemeContext<'_, R>,
+    request: Request<Vec<u8>>,
+) -> Response<Cow<'static, [u8]>> {
     let id = request.uri().path().trim_start_matches('/').to_string();
     if !is_uuid(&id) {
         return status(StatusCode::BAD_REQUEST);

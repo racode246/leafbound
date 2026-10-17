@@ -17,7 +17,8 @@ fn entry(service: &str, provider: &str) -> Result<keyring::Entry, String> {
     if !PROVIDERS.contains(&provider) {
         return Err(format!("unknown provider: {provider}"));
     }
-    keyring::Entry::new(service, &format!("llm-api-key:{provider}")).map_err(|e| format!("credential store: {e}"))
+    keyring::Entry::new(service, &format!("llm-api-key:{provider}"))
+        .map_err(|e| format!("credential store: {e}"))
 }
 
 pub fn get(service: &str, provider: &str) -> Result<Option<String>, String> {
@@ -55,5 +56,8 @@ pub struct KeyStatus {
 
 pub fn status(service: &str) -> KeyStatus {
     let has = |p: &str| matches!(get(service, p), Ok(Some(_)));
-    KeyStatus { anthropic: has("anthropic"), openai: has("openai") }
+    KeyStatus {
+        anthropic: has("anthropic"),
+        openai: has("openai"),
+    }
 }

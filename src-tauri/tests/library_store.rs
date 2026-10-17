@@ -29,8 +29,16 @@ fn imports_epub_with_metadata_and_cover() {
     assert_eq!(book.title, "Leafbound サンプル");
     assert_eq!(book.author, "Leafbound Contributors");
     assert!(book.has_cover);
-    assert!(book.content_hash.as_deref().map(|h| h.len() == 64).unwrap_or(false));
-    assert!(book.cover_path.as_deref().map(|p| PathBuf::from(p).exists()).unwrap_or(false));
+    assert!(book
+        .content_hash
+        .as_deref()
+        .map(|h| h.len() == 64)
+        .unwrap_or(false));
+    assert!(book
+        .cover_path
+        .as_deref()
+        .map(|p| PathBuf::from(p).exists())
+        .unwrap_or(false));
     assert!(store.book_path(&book.id).exists());
 
     let bytes = store.read_book(&book.id).unwrap();
@@ -67,7 +75,10 @@ fn detects_duplicate_imports_by_content() {
     let mut bytes = fs::read(fixture()).unwrap();
     bytes.push(0);
     fs::write(&other, bytes).unwrap();
-    assert!(matches!(store.import_file(&other).unwrap(), Import::Added(_)));
+    assert!(matches!(
+        store.import_file(&other).unwrap(),
+        Import::Added(_)
+    ));
     assert_eq!(store.snapshot().books.len(), 2);
 
     fs::remove_dir_all(dir).ok();
@@ -91,7 +102,9 @@ fn stores_annotations_per_book() {
         created_at: "2026-10-07T00:00:00Z".into(),
         updated_at: "2026-10-07T00:00:00Z".into(),
     };
-    store.save_annotations(&book.id, std::slice::from_ref(&note)).unwrap();
+    store
+        .save_annotations(&book.id, std::slice::from_ref(&note))
+        .unwrap();
     assert!(store.annotations_path(&book.id).exists());
 
     let reloaded = LibraryStore::load(dir.clone()).unwrap();
@@ -120,14 +133,20 @@ fn scanned_book_uses_first_page_as_cover() {
     let scanned = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scanned.epub");
     let book = added(store.import_file(&scanned).unwrap());
     assert_eq!(book.title, "スキャン本");
-    assert!(book.has_cover, "scan without cover metadata should still get a cover");
+    assert!(
+        book.has_cover,
+        "scan without cover metadata should still get a cover"
+    );
 
     // The cover must be page 1's image, even though page 2's image is larger.
     let cover = fs::read(store.cover_path(&book.id)).unwrap();
     let file = fs::File::open(&scanned).unwrap();
     let mut zip = zip::ZipArchive::new(file).unwrap();
     let mut page1 = Vec::new();
-    zip.by_name("OEBPS/images/page001.png").unwrap().read_to_end(&mut page1).unwrap();
+    zip.by_name("OEBPS/images/page001.png")
+        .unwrap()
+        .read_to_end(&mut page1)
+        .unwrap();
     assert_eq!(cover, page1);
 
     // Refreshing re-extracts and bumps the version so the UI reloads the image.
@@ -152,7 +171,10 @@ fn imports_from_bytes() {
     assert!(store.book_path(&book.id).exists());
 
     // Same bytes again are a duplicate; wrong extension is rejected.
-    assert!(matches!(store.import_bytes("again.epub", &bytes).unwrap(), Import::Duplicate(_)));
+    assert!(matches!(
+        store.import_bytes("again.epub", &bytes).unwrap(),
+        Import::Duplicate(_)
+    ));
     assert!(store.import_bytes("notes.txt", &bytes).is_err());
     assert_eq!(store.snapshot().books.len(), 1);
 
@@ -176,7 +198,9 @@ fn tracks_progress_categories_and_settings() {
     let mut store = LibraryStore::load(dir.clone()).unwrap();
     let book = added(store.import_file(&fixture()).unwrap());
 
-    store.save_progress(&book.id, "epubcfi(/6/4!/4/2/1:0)".into(), 0.42).unwrap();
+    store
+        .save_progress(&book.id, "epubcfi(/6/4!/4/2/1:0)".into(), 0.42)
+        .unwrap();
     let snap = store.snapshot();
     let p = snap.books[0].progress.as_ref().unwrap();
     assert_eq!(p.cfi, "epubcfi(/6/4!/4/2/1:0)");
@@ -185,7 +209,10 @@ fn tracks_progress_categories_and_settings() {
 
     // Percent is clamped.
     store.save_progress(&book.id, "x".into(), 7.0).unwrap();
-    assert_eq!(store.snapshot().books[0].progress.as_ref().unwrap().percent, 1.0);
+    assert_eq!(
+        store.snapshot().books[0].progress.as_ref().unwrap().percent,
+        1.0
+    );
 
     // Categories: unknown names are dropped, rename cascades, remove cascades.
     assert_eq!(store.add_category("  SF ").unwrap(), vec!["SF".to_string()]);
@@ -193,7 +220,9 @@ fn tracks_progress_categories_and_settings() {
     store.add_category("").unwrap();
     assert_eq!(store.snapshot().categories, vec!["SF".to_string()]);
 
-    let updated = store.set_book_categories(&book.id, vec!["SF".into(), "ghost".into()]).unwrap();
+    let updated = store
+        .set_book_categories(&book.id, vec!["SF".into(), "ghost".into()])
+        .unwrap();
     assert_eq!(updated.categories, vec!["SF".to_string()]);
 
     let lib = store.rename_category("SF", "Science Fiction").unwrap();
@@ -224,7 +253,10 @@ fn tracks_progress_categories_and_settings() {
     let reloaded = LibraryStore::load(dir.clone()).unwrap().snapshot();
     assert_eq!(reloaded.settings.view, "list");
     assert_eq!(reloaded.settings.assistant.provider, "openai");
-    assert_eq!(reloaded.settings.assistant.base_url, "http://localhost:11434/v1");
+    assert_eq!(
+        reloaded.settings.assistant.base_url,
+        "http://localhost:11434/v1"
+    );
     assert_eq!(reloaded.settings.spread, "always");
     assert_eq!(reloaded.settings.language, "en");
     assert_eq!(reloaded.settings.font_size, 22);

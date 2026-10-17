@@ -41,7 +41,10 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             let store = LibraryStore::load(data_dir.clone())?;
             app.manage(AppState(Mutex::new(store)));
-            app.manage(assistant::AssistantState::new(&data_dir, &app.config().identifier)?);
+            app.manage(assistant::AssistantState::new(
+                &data_dir,
+                &app.config().identifier,
+            )?);
             app.manage(PendingOpen(Mutex::new(epub_args(std::env::args().skip(1)))));
             Ok(())
         })

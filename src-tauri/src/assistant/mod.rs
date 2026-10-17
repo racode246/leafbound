@@ -75,7 +75,9 @@ impl AssistantState {
             .map_err(|e| e.to_string())?;
         Ok(Self {
             db: Mutex::new(db),
-            embedder: Arc::new(Embedder::new(data_dir.join("models").join("multilingual-e5-small"))),
+            embedder: Arc::new(Embedder::new(
+                data_dir.join("models").join("multilingual-e5-small"),
+            )),
             http,
             prepare: tauri::async_runtime::Mutex::new(()),
             asks: Mutex::new(HashMap::new()),
@@ -143,7 +145,10 @@ pub enum PrepareEvent {
 
 /// Downloads (first run) and loads the embedding model.
 #[tauri::command]
-pub async fn assistant_prepare(state: Assistant<'_>, on_event: Channel<PrepareEvent>) -> Result<(), String> {
+pub async fn assistant_prepare(
+    state: Assistant<'_>,
+    on_event: Channel<PrepareEvent>,
+) -> Result<(), String> {
     let _guard = state.prepare.lock().await;
     if !state.embedder.is_downloaded() {
         let mut last = 0u64;
@@ -182,19 +187,28 @@ pub async fn assistant_index_section(
     let texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
     let vectors = state.blocking(move |e| e.embed_passages(&texts)).await?;
     let rows: Vec<(ChunkInput, Vec<f32>)> = chunks.into_iter().zip(vectors).collect();
-    state.db().store_section(&book_id, CHUNK_INDEX, section, &href, &chapter, &rows)
+    state
+        .db()
+        .store_section(&book_id, CHUNK_INDEX, section, &href, &chapter, &rows)
 }
 
 // ---- API keys -----------------------------------------------------------------
 
 #[tauri::command]
-pub fn assistant_set_api_key(state: Assistant<'_>, provider: String, key: String) -> Result<secrets::KeyStatus, String> {
+pub fn assistant_set_api_key(
+    state: Assistant<'_>,
+    provider: String,
+    key: String,
+) -> Result<secrets::KeyStatus, String> {
     secrets::set(&state.key_service, &provider, &key)?;
     Ok(secrets::status(&state.key_service))
 }
 
 #[tauri::command]
-pub fn assistant_delete_api_key(state: Assistant<'_>, provider: String) -> Result<secrets::KeyStatus, String> {
+pub fn assistant_delete_api_key(
+    state: Assistant<'_>,
+    provider: String,
+) -> Result<secrets::KeyStatus, String> {
     secrets::delete(&state.key_service, &provider)?;
     Ok(secrets::status(&state.key_service))
 }
@@ -217,7 +231,10 @@ pub fn assistant_history(state: Assistant<'_>, book_id: String) -> Result<Histor
         Some(s) => db.session_exchanges(&book_id, s)?,
         None => Vec::new(),
     };
-    Ok(History { session_id, exchanges })
+    Ok(History {
+        session_id,
+        exchanges,
+    })
 }
 
 #[tauri::command]
@@ -247,14 +264,25 @@ pub struct AskRequest {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AskEvent {
     /// "highlights" | "searching" | "generating"
-    Stage { stage: &'static str },
-    Sources { sources: Vec<db::Source> },
-    Delta { text: String },
+    Stage {
+        stage: &'static str,
+    },
+    Sources {
+        sources: Vec<db::Source>,
+    },
+    Delta {
+        text: String,
+    },
 }
 
 #[tauri::command]
 pub fn assistant_cancel(state: Assistant<'_>, request_id: String) {
-    if let Some(flag) = state.asks.lock().unwrap_or_else(|p| p.into_inner()).get(&request_id) {
+    if let Some(flag) = state
+        .asks
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .get(&request_id)
+    {
         flag.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
@@ -276,7 +304,9 @@ pub async fn assistant_ask(
 
     let (settings, title, author, annotations) = {
         let lib = library(&library_state);
-        let book = lib.book(&request.book_id).ok_or_else(|| format!("unknown book: {}", request.book_id))?;
+        let book = lib
+            .book(&request.book_id)
+            .ok_or_else(|| format!("unknown book: {}", request.book_id))?;
         (
             lib.settings().assistant.clone(),
             book.title.clone(),
@@ -293,7 +323,9 @@ pub async fn assistant_ask(
         return Err("model is not set".into());
     }
 
-    let _ = on_event.send(AskEvent::Stage { stage: "highlights" });
+    let _ = on_event.send(AskEvent::Stage {
+        stage: "highlights",
+    });
     sync_highlights(&state, &request.book_id, &annotations).await?;
 
     let cancel = Arc::new(AtomicBool::new(false));
@@ -302,11 +334,17 @@ pub async fn assistant_ask(
         .lock()
         .unwrap_or_else(|p| p.into_inner())
         .insert(request.request_id.clone(), Arc::clone(&cancel));
-    let _cancel_guard = CancelGuard { state: &state, id: request.request_id.clone() };
+    let _cancel_guard = CancelGuard {
+        state: &state,
+        id: request.request_id.clone(),
+    };
     let model = settings.model.trim().to_string();
 
     let _ = on_event.send(AskEvent::Stage { stage: "searching" });
-    let window = state.db().recent_exchanges(&request.book_id, &request.session_id, WINDOW_EXCHANGES)?;
+    let window =
+        state
+            .db()
+            .recent_exchanges(&request.book_id, &request.session_id, WINDOW_EXCHANGES)?;
     let search = prompt::search_text(&question, window.last());
 
     // HyDE: ask the model for the passage it expects would answer the question and
@@ -330,18 +368,41 @@ pub async fn assistant_ask(
         }
     };
     let search_for_embedding = search.clone();
-    let query = state.blocking(move |e| e.embed_query(&search_for_embedding)).await?;
+    let query = state
+        .blocking(move |e| e.embed_query(&search_for_embedding))
+        .await?;
     let passage_query = match hypothetical {
-        Some(text) => state.blocking(move |e| e.embed_passages(&[text])).await?.remove(0),
+        Some(text) => state
+            .blocking(move |e| e.embed_passages(&[text]))
+            .await?
+            .remove(0),
         None => query.clone(),
     };
     let window_ids: Vec<String> = window.iter().map(|e| e.id.clone()).collect();
     let (passages, highlights, related) = {
         let db = state.db();
         (
-            find_passages(&db, &request.book_id, &passage_query, request.covered_section)?,
-            db.search_highlights(&request.book_id, MODEL_ID, &query, HIGHLIGHT_HITS, HIGHLIGHT_MAX_DISTANCE)?,
-            db.search_exchanges(&request.book_id, MODEL_ID, &query, RELATED_HITS, RELATED_MAX_DISTANCE, &window_ids)?,
+            find_passages(
+                &db,
+                &request.book_id,
+                &passage_query,
+                request.covered_section,
+            )?,
+            db.search_highlights(
+                &request.book_id,
+                MODEL_ID,
+                &query,
+                HIGHLIGHT_HITS,
+                HIGHLIGHT_MAX_DISTANCE,
+            )?,
+            db.search_exchanges(
+                &request.book_id,
+                MODEL_ID,
+                &query,
+                RELATED_HITS,
+                RELATED_MAX_DISTANCE,
+                &window_ids,
+            )?,
         )
     };
 
@@ -357,8 +418,12 @@ pub async fn assistant_ask(
         window: &window,
         question: &question,
     });
-    let _ = on_event.send(AskEvent::Sources { sources: built.sources.clone() });
-    let _ = on_event.send(AskEvent::Stage { stage: "generating" });
+    let _ = on_event.send(AskEvent::Sources {
+        sources: built.sources.clone(),
+    });
+    let _ = on_event.send(AskEvent::Stage {
+        stage: "generating",
+    });
 
     let chat = ChatRequest {
         provider,
@@ -369,7 +434,9 @@ pub async fn assistant_ask(
         messages: built.messages,
     };
     let result = llm::stream_chat(&state.http, &chat, &cancel, |text| {
-        let _ = on_event.send(AskEvent::Delta { text: text.to_string() });
+        let _ = on_event.send(AskEvent::Delta {
+            text: text.to_string(),
+        });
     })
     .await;
 
@@ -414,7 +481,10 @@ pub fn find_passages(
     let section_of: HashMap<i64, i64> = ranked.iter().map(|c| (c.id, c.section)).collect();
     let picked = search::spread(&ids, &section_of, PASSAGE_HITS, PASSAGES_PER_SECTION);
     let mut by_id: HashMap<i64, db::ChunkHit> = ranked.into_iter().map(|c| (c.id, c)).collect();
-    Ok(picked.into_iter().filter_map(|id| by_id.remove(&id)).collect())
+    Ok(picked
+        .into_iter()
+        .filter_map(|id| by_id.remove(&id))
+        .collect())
 }
 
 /// Removes a request's cancel flag however `assistant_ask` returns.
@@ -425,7 +495,11 @@ struct CancelGuard<'a> {
 
 impl Drop for CancelGuard<'_> {
     fn drop(&mut self) {
-        self.state.asks.lock().unwrap_or_else(|p| p.into_inner()).remove(&self.id);
+        self.state
+            .asks
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(&self.id);
     }
 }
 
@@ -441,7 +515,10 @@ async fn sync_highlights(
     for a in annotations {
         let current = stored.get(&a.id);
         let fresh = current.is_some_and(|row| {
-            row.model == MODEL_ID && row.text == a.text && row.note == a.note && row.cfi == a.cfi_range
+            row.model == MODEL_ID
+                && row.text == a.text
+                && row.note == a.note
+                && row.cfi == a.cfi_range
         });
         if !fresh {
             changed.push(HighlightRow {
@@ -491,15 +568,35 @@ mod tests {
     #[test]
     fn passages_are_spread_over_sections() {
         let mut db = AssistantDb::open_in_memory().unwrap();
-        let input = |t: &str| ChunkInput { text: t.into(), cfi: String::new() };
-        let near: Vec<(ChunkInput, Vec<f32>)> = (0..5).map(|i| (input(&format!("near {i}")), vec![1.0, 0.01 * i as f32])).collect();
-        db.store_section("b", CHUNK_INDEX, 0, "a", "", &near).unwrap();
-        db.store_section("b", CHUNK_INDEX, 1, "b", "", &[(input("far"), vec![0.0, 1.0])]).unwrap();
+        let input = |t: &str| ChunkInput {
+            text: t.into(),
+            cfi: String::new(),
+        };
+        let near: Vec<(ChunkInput, Vec<f32>)> = (0..5)
+            .map(|i| (input(&format!("near {i}")), vec![1.0, 0.01 * i as f32]))
+            .collect();
+        db.store_section("b", CHUNK_INDEX, 0, "a", "", &near)
+            .unwrap();
+        db.store_section(
+            "b",
+            CHUNK_INDEX,
+            1,
+            "b",
+            "",
+            &[(input("far"), vec![0.0, 1.0])],
+        )
+        .unwrap();
         let hits = find_passages(&db, "b", &[1.0, 0.0], None).unwrap();
         // Five near chunks in one section, but only PASSAGES_PER_SECTION of them are kept.
-        assert_eq!(hits.iter().filter(|h| h.section == 0).count(), PASSAGES_PER_SECTION);
+        assert_eq!(
+            hits.iter().filter(|h| h.section == 0).count(),
+            PASSAGES_PER_SECTION
+        );
         assert!(hits.iter().any(|h| h.text == "far"));
         // A chapter that is already in the prompt is left out.
-        assert!(find_passages(&db, "b", &[1.0, 0.0], Some(0)).unwrap().iter().all(|h| h.section != 0));
+        assert!(find_passages(&db, "b", &[1.0, 0.0], Some(0))
+            .unwrap()
+            .iter()
+            .all(|h| h.section != 0));
     }
 }

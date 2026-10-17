@@ -16,7 +16,10 @@ fn model_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     let appdata = std::env::var("APPDATA").expect("APPDATA");
-    PathBuf::from(appdata).join("dev.leafbound.app").join("models").join("multilingual-e5-small")
+    PathBuf::from(appdata)
+        .join("dev.leafbound.app")
+        .join("models")
+        .join("multilingual-e5-small")
 }
 
 fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
@@ -57,7 +60,12 @@ fn downloads_loads_and_ranks_related_text_closer() {
     println!("embed {} passages: {:?}", passages.len(), t.elapsed());
     assert_eq!(vectors[0].len(), 384);
 
-    let queries = ["猫の名前は何ですか？", "主人の健康状態は？", "How did revenue change?", "雪国の冒頭は？"];
+    let queries = [
+        "猫の名前は何ですか？",
+        "主人の健康状態は？",
+        "How did revenue change?",
+        "雪国の冒頭は？",
+    ];
     for (qi, q) in queries.iter().enumerate() {
         let qv = embedder.embed_query(q).unwrap();
         let distances: Vec<f32> = vectors.iter().map(|v| cosine_distance(&qv, v)).collect();
@@ -75,12 +83,17 @@ fn downloads_loads_and_ranks_related_text_closer() {
     let again = embedder.embed_passages(&passages[..1]).unwrap();
     assert!(cosine_distance(&again[0], &vectors[0]) < 1e-5);
 
-    let long: Vec<String> = (0..50).map(|i| format!("{} {i}", passages[i % 4].repeat(8))).collect();
+    let long: Vec<String> = (0..50)
+        .map(|i| format!("{} {i}", passages[i % 4].repeat(8)))
+        .collect();
     let t = Instant::now();
     embedder.embed_passages(&long).unwrap();
     println!("embed 50 long passages: {:?}", t.elapsed());
 }
 
 fn tokio_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap()
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
 }
