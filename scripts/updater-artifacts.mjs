@@ -43,6 +43,8 @@ function changelogNotes(path, version) {
     .slice(start + 1, end)
     .join('\n')
     .replace(/ \(\[[^\]]+\]\([^)]+\)(, \[[^\]]+\]\([^)]+\))*\)/g, '')
+    // ", closes [#5](…)" (or several issues): issue numbers mean nothing in the update dialog.
+    .replace(/,? closes \[[^\]]+\]\([^)]+\)(,? \[[^\]]+\]\([^)]+\))*/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
