@@ -376,11 +376,12 @@ impl LibraryStore {
     /// behind by a failed delete, or an import that never got committed).
     ///
     /// Does nothing unless `library.json` was read successfully: a missing or
-    /// broken one says nothing about which books exist. Must run before any
+    /// broken one says nothing about which books exist. Nor when the library
+    /// is empty but `books/` holds book files (see below). Must run before any
     /// import starts, since [`ImportDirs::prepare`] writes files under an id
     /// that is only added to the library by [`LibraryStore::commit_import`].
     /// Returns the removed files; failures are logged and skipped.
-    pub fn remove_orphaned_files(&self) -> Vec<PathBuf> {
+    pub fn remove_orphaned_files(&mut self) -> Vec<PathBuf> {
         match self.status {
             LoadStatus::Loaded if self.data.prune_orphans => {}
             LoadStatus::Loaded => {
@@ -389,6 +390,19 @@ impl LibraryStore {
             }
             LoadStatus::Missing | LoadStatus::Unreadable => return Vec::new(),
         }
+        let files = self.book_files();
+        if self.data.books.is_empty() && files.iter().any(|(p, _)| p.starts_with(&self.books_dir)) {
+            // An empty library next to stored books is most likely one that was
+            // reset and saved before `pruneOrphans` existed: the books are only
+            // hidden and can still be recovered by hand. Record that, so they
+            // are kept even once new books are added.
+            eprintln!("library: keeping book files of an empty library (it may have been reset)");
+            self.data.prune_orphans = false;
+            if let Err(err) = self.save() {
+                eprintln!("library: cannot save library.json: {err}");
+            }
+            return Vec::new();
+        }
         let known: std::collections::HashSet<String> = self
             .data
             .books
@@ -396,7 +410,7 @@ impl LibraryStore {
             .map(|b| b.id.to_ascii_lowercase())
             .collect();
         let mut removed = Vec::new();
-        for (path, id) in self.book_files() {
+        for (path, id) in files {
             if known.contains(&id) {
                 continue;
             }

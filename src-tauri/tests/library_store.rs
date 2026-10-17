@@ -336,7 +336,7 @@ fn removes_files_of_unknown_books_and_keeps_the_rest() {
     fs::create_dir_all(folder.join("inside")).unwrap();
     drop(store);
 
-    let store = LibraryStore::load(dir.clone()).unwrap();
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
     let mut removed = store.remove_orphaned_files();
     removed.sort();
     let mut expected = orphans.clone();
@@ -362,7 +362,7 @@ fn removes_files_of_unknown_books_and_keeps_the_rest() {
 }
 
 /// A library that cannot be used as the list of books removes nothing, not even
-/// once the empty library that replaced it has been saved.
+/// once the library that replaced it has been saved with a book in it.
 fn assert_keeps_files_after_reset(dir: PathBuf) {
     let store = LibraryStore::load(dir.clone()).unwrap();
     let id = new_id();
@@ -376,13 +376,65 @@ fn assert_keeps_files_after_reset(dir: PathBuf) {
         assert!(path.exists(), "{} should be kept", path.display());
     }
 
-    // Any change saves the (empty) library; the next start still keeps the files.
-    let _ = store.add_category("SF");
+    // Importing saves the new library; later starts still keep the files.
+    let book = added(store.import_file(&fixture()).unwrap());
     drop(store);
-    let store = LibraryStore::load(dir.clone()).unwrap();
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
     assert!(store.remove_orphaned_files().is_empty());
     for path in &files {
         assert!(path.exists(), "{} should be kept", path.display());
+    }
+    assert!(store.book_path(&book.id).exists());
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn empty_library_next_to_book_files_removes_nothing() {
+    let dir = temp_dir("empty");
+    // A valid, saved library without books, like one that was reset and saved
+    // before pruneOrphans existed.
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    store.add_category("SF").unwrap();
+    let files = plant_book_files(&store, &new_id());
+    drop(store);
+
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    assert!(store.snapshot().books.is_empty());
+    assert!(store.remove_orphaned_files().is_empty());
+    for path in &files {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+
+    // Remembered: once books are added again, the files are still kept.
+    added(store.import_file(&fixture()).unwrap());
+    drop(store);
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    assert!(store.remove_orphaned_files().is_empty());
+    for path in &files {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn empty_library_without_book_files_removes_leftovers() {
+    let dir = temp_dir("empty-leftovers");
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    store.add_category("SF").unwrap();
+    // Only a cover and highlights are left, no book: nothing to recover.
+    let id = new_id();
+    let leftovers = [store.cover_path(&id), store.annotations_path(&id)];
+    for path in &leftovers {
+        fs::write(path, "left behind").unwrap();
+    }
+    drop(store);
+
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    assert_eq!(store.remove_orphaned_files().len(), 2);
+    for path in &leftovers {
+        assert!(!path.exists(), "{} should be removed", path.display());
     }
 
     fs::remove_dir_all(dir).ok();
@@ -407,7 +459,7 @@ fn unreadable_library_removes_nothing() {
     let files = plant_book_files(&store, &new_id());
     drop(store);
 
-    let store = LibraryStore::load(dir.clone()).unwrap();
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
     assert!(store.remove_orphaned_files().is_empty());
     for path in &files {
         assert!(path.exists(), "{} should be kept", path.display());

@@ -39,7 +39,7 @@ pub fn run() {
         .register_uri_scheme_protocol(covers_protocol::SCHEME, covers_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
-            let store = LibraryStore::load(data_dir.clone())?;
+            let mut store = LibraryStore::load(data_dir.clone())?;
             // Before the store is managed, so no command can have started an
             // import (whose files exist before its id is in the library). A
             // second instance never gets here: the single-instance plugin exits
