@@ -74,6 +74,7 @@ export default function Sidebar({
           editing?.name === c ? (
             <li key={c} className="nav-edit">
               <input
+                // biome-ignore lint/a11y/noAutofocus: the field appears only after the user double-clicks a category to rename it
                 autoFocus
                 value={editing.value}
                 onChange={(e) => setEditing({ ...editing, value: e.target.value })}

@@ -31,6 +31,14 @@ async function ask(app: App, ai: Assistant, question: string): Promise<LlmReques
 
 const system = (r: LlmRequest) => r.body.messages[0].content
 
+/** The library id of the test book. */
+async function bookId(app: App): Promise<string> {
+  const { books } = await app.invoke<{ books: { id: string; title: string }[] }>('get_library')
+  const book = books.find((b) => b.title === BOOK)
+  if (!book) throw new Error(`${BOOK} is not in the library`)
+  return book.id
+}
+
 test('builds the prompt from the chapter, passages, highlights and the conversation window', async ({
   app
 }) => {
@@ -40,11 +48,8 @@ test('builds the prompt from the chapter, passages, highlights and the conversat
 
   await ai.open()
   await ai.waitUntilReady()
-  const book = (
-    await app.invoke<{ books: { id: string; title: string }[] }>('get_library')
-  ).books.find((b) => b.title === BOOK)!
   const status = await app.invoke<{ indexedSections: number[] }>('assistant_status', {
-    bookId: book.id
+    bookId: await bookId(app)
   })
   expect(status.indexedSections).toHaveLength(4)
 
@@ -112,11 +117,8 @@ test('stores the API key outside the webview, starts a new chat and keeps histor
   expect(r.body.messages, 'a new chat sends no window').toHaveLength(2)
   expect(r.authorization).toBe('Bearer sk-leafbound-e2e')
 
-  const book = (
-    await app.invoke<{ books: { id: string; title: string }[] }>('get_library')
-  ).books.find((b) => b.title === BOOK)!
   const history = await app.invoke<{ exchanges: { question: string }[] }>('assistant_history', {
-    bookId: book.id
+    bookId: await bookId(app)
   })
   expect(history.exchanges.map((e) => e.question)).toEqual(['千夏はミケを何と呼ぶ？'])
 

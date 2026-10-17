@@ -76,7 +76,8 @@ export class Reader {
         const doc = p.ownerDocument
         const range = doc.createRange()
         range.selectNodeContents(p)
-        const sel = doc.getSelection()!
+        const sel = doc.getSelection()
+        if (!sel) throw new Error('the chapter document has no selection')
         sel.removeAllRanges()
         sel.addRange(range)
         doc.dispatchEvent(new Event('selectionchange'))

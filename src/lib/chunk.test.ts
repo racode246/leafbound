@@ -23,7 +23,7 @@ describe('chunkRanges', () => {
 
       it('covers the whole text without gaps', () => {
         expect(ranges[0][0]).toBe(0)
-        expect(ranges.at(-1)![1]).toBe(text.length)
+        expect(ranges.at(-1)?.[1]).toBe(text.length)
         for (let i = 1; i < ranges.length; i++)
           expect(ranges[i][0]).toBeLessThanOrEqual(ranges[i - 1][1])
       })
@@ -44,7 +44,7 @@ describe('chunkRanges', () => {
   it('always makes progress on text without sentence boundaries', () => {
     const text = 'あ'.repeat(2000)
     const ranges = chunkRanges(text)
-    expect(ranges.at(-1)![1]).toBe(2000)
+    expect(ranges.at(-1)?.[1]).toBe(2000)
     for (let i = 1; i < ranges.length; i++) expect(ranges[i][0]).toBeGreaterThan(ranges[i - 1][0])
   })
 })

@@ -87,6 +87,7 @@ export default function SearchPanel({
             const showChapter = chapter !== lastChapter
             lastChapter = chapter
             return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: each search replaces the list and never reorders it; the index keeps hits with the same CFI apart
               <li key={`${hit.cfi}-${i}`}>
                 {showChapter && chapter && <div className="search-chapter">{chapter}</div>}
                 <button

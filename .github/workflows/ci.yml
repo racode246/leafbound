@@ -29,9 +29,13 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      # Biome, formatter only (scope and style in biome.json).
+      # Biome (scope, style and rules in biome.json): formatting, then the recommended lint
+      # rules, where warnings fail too.
       - name: Format check
         run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
 
       # App and E2E TypeScript.
       - name: Type check

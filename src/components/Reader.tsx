@@ -73,6 +73,20 @@ function highlightStyle(color: HighlightColor): Record<string, string> {
   return { fill: HIGHLIGHT_COLORS[color], 'fill-opacity': '0.45', 'mix-blend-mode': 'multiply' }
 }
 
+function removeHighlight(rendition: Rendition, a: Annotation): void {
+  try {
+    rendition.annotations.remove(a.cfiRange, 'highlight')
+  } catch {
+    // already gone
+  }
+}
+
+function clearSelection(rendition: Rendition): void {
+  // epub.js types declare a single Contents, but the runtime returns an array.
+  const contents = rendition.getContents() as unknown as Contents[]
+  for (const c of contents) c.window.getSelection()?.removeAllRanges()
+}
+
 export default function Reader({ book, settings, onSettings, onBack, onProgress }: Props) {
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -168,14 +182,6 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     [iframeFor, openEditorAt]
   )
 
-  const removeHighlight = (rendition: Rendition, a: Annotation) => {
-    try {
-      rendition.annotations.remove(a.cfiRange, 'highlight')
-    } catch {
-      // already gone
-    }
-  }
-
   const saveAnnotations = useCallback(
     (next: Annotation[]) => {
       annotationsRef.current = next
@@ -184,12 +190,6 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     },
     [book.id]
   )
-
-  const clearIframeSelection = () => {
-    // epub.js types declare a single Contents, but the runtime returns an array.
-    const contents = renditionRef.current?.getContents() as unknown as Contents[] | undefined
-    contents?.forEach((c) => c.window.getSelection()?.removeAllRanges())
-  }
 
   const createAnnotation = useCallback(
     (color: HighlightColor, withNote: boolean) => {
@@ -207,7 +207,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       }
       saveAnnotations([...annotationsRef.current, a])
       addHighlight(r, a)
-      clearIframeSelection()
+      clearSelection(r)
       setSelection(null)
       if (withNote) setEditing({ id: a.id, x: selection.x, y: selection.y })
     },
@@ -251,7 +251,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         annotationsRef.current = list
         setAnnotations(list)
         const r = renditionRef.current
-        if (r) list.forEach((a) => addHighlight(r, a))
+        if (r) for (const a of list) addHighlight(r, a)
       })
       .catch((err) => console.error('getAnnotations', err))
     return () => {
@@ -261,6 +261,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   // ---- rendition lifecycle ----------------------------------------------
 
+  // Rebuild the rendition only for a new book, flow or spread; the position comes back from
+  // lastCfiRef. The callbacks it registers are read once: addHighlight, iframeFor and handleKey
+  // never change, but persist does on every App render (onProgress is an inline arrow), and
+  // depending on it would tear down and reopen the book after each progress save.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only book.id, flow and spread may rebuild the rendition (see above)
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -296,7 +301,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         applyReaderTheme(rendition, settingsRef.current)
 
         const report = (loc: Location | undefined | null) => {
-          if (!loc || !loc.start || !epubBook) return
+          if (!loc?.start || !epubBook) return
           const cfi = loc.start.cfi
           let pct: number
           if (epubBook.locations.length() > 0) {
@@ -368,7 +373,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         await rendition.display(lastCfiRef.current ?? undefined)
         debug('displayed, disposed', disposed)
         if (disposed) return
-        annotationsRef.current.forEach((a) => addHighlight(rendition, a))
+        for (const a of annotationsRef.current) addHighlight(rendition, a)
         setStatus('ready')
 
         const nav = await epubBook.loaded.navigation
@@ -408,7 +413,6 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       }
       container.innerHTML = ''
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book.id, flow, spread])
 
   useEffect(() => {

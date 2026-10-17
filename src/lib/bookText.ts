@@ -40,7 +40,7 @@ function collectText(doc: Document): CollectedText {
     const piece = (node.data ?? '').replace(/\s+/g, ' ')
     if (!piece.trim()) continue
     const block = parent.closest(BLOCK_SELECTOR)
-    if (text && block !== lastBlock) text = text.replace(/ $/, '') + '\n'
+    if (text && block !== lastBlock) text = `${text.replace(/ $/, '')}\n`
     lastBlock = block
     spans.push({ node, start: text.length, length: piece.length })
     text += piece

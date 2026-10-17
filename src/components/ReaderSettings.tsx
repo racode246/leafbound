@@ -51,7 +51,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
 
       <section>
         <h3>{t('settings.flow')}</h3>
-        <div className="segmented wide" role="group">
+        <fieldset className="segmented wide">
           <button
             type="button"
             className={settings.flow === 'paginated' ? 'active' : ''}
@@ -66,12 +66,12 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
           >
             {t('flow.scrolled')}
           </button>
-        </div>
+        </fieldset>
       </section>
 
       <section>
         <h3>{t('settings.spread')}</h3>
-        <div className="segmented wide" role="group" aria-disabled={!paginated}>
+        <fieldset className="segmented wide" aria-disabled={!paginated}>
           {SPREADS.map((s) => (
             <button
               type="button"
@@ -84,13 +84,13 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
               {t(s.key)}
             </button>
           ))}
-        </div>
+        </fieldset>
         {!paginated && <p className="muted small">{t('spread.needsPaginated')}</p>}
       </section>
 
       <section>
         <h3>{t('settings.theme')}</h3>
-        <div className="segmented wide" role="group">
+        <fieldset className="segmented wide">
           {THEMES.map((th) => (
             <button
               type="button"
@@ -101,7 +101,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
               {t(th.key)}
             </button>
           ))}
-        </div>
+        </fieldset>
       </section>
 
       <section>

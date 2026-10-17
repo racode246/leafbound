@@ -26,6 +26,7 @@ export default function AnnotationEditor({
 }: Props) {
   const t = useT()
   const [note, setNote] = useState(annotation.note)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: annotation.id is a trigger: opening another highlight drops the draft even if both notes are the same
   useEffect(() => setNote(annotation.note), [annotation.id, annotation.note])
 
   const width = 300
