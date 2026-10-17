@@ -124,7 +124,7 @@ scripts/        Helpers: app icon, sample EPUB fixture, demo books for screensho
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `npm run typecheck` and `cargo test` before opening a pull request. New user-facing strings go into both dictionaries in `src/i18n.tsx`.
+Issues and pull requests are welcome. Before opening a pull request, format the code (`npm run format` and `cargo fmt --manifest-path src-tauri/Cargo.toml`) and run `npm run typecheck` and `cargo test`. New user-facing strings go into both dictionaries in `src/i18n.tsx`.
 
 ## License
 

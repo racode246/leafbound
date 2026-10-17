@@ -123,7 +123,7 @@ scripts/        補助スクリプト: アプリアイコン、テスト用 EPUB
 
 ## コントリビュート
 
-Issue と Pull Request を歓迎します。PR を送る前に `npm run typecheck` と `cargo test` を通してください。ユーザーに見える文字列を追加するときは `src/i18n.tsx` の両方の辞書に入れてください。
+Issue と Pull Request を歓迎します。PR を送る前にコードを整形し (`npm run format` と `cargo fmt --manifest-path src-tauri/Cargo.toml`)、`npm run typecheck` と `cargo test` を通してください。ユーザーに見える文字列を追加するときは `src/i18n.tsx` の両方の辞書に入れてください。
 
 ## ライセンス
 
