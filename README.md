@@ -22,12 +22,12 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 1. The first time you open the panel, Leafbound asks before downloading a small multilingual embedding model ([multilingual-e5-small](https://huggingface.co/Xenova/multilingual-e5-small), int8 ONNX, about 135 MB). The download is pinned to a fixed revision and checked against SHA-256 digests.
 2. The book text is split into ~500-character passages and turned into vectors on your PC. They are stored in a local SQLite database with [sqlite-vec](https://github.com/asg017/sqlite-vec), along with your highlights and past answers. Indexing a full-length novel takes roughly ten seconds.
-3. For each question, the question (plus the previous one, for follow-ups) is embedded locally and the closest passages, highlights and conversations are looked up.
+3. For each question, the model you configured first writes a short passage that would answer it; that passage is embedded locally and the closest passages of the book are looked up (this finds the answering chapter far more often than searching with the question itself). Highlights and earlier conversations are looked up with the question.
 4. Leafbound assembles a prompt from that material and sends it to the model you configured.
 
 ### Privacy and API keys
 
-- Searching and indexing run entirely on your PC. Only your question, the current chapter (up to about 6,000 characters), the retrieved passages, highlights and notes, and the last 5 exchanges are sent to the provider you choose. With a local server such as Ollama, nothing leaves your machine.
+- Indexing and the passage search run on your PC; each question makes two requests to the provider (the search passage, then the answer). Only your question, the current chapter (up to about 6,000 characters), the retrieved passages, highlights and notes, and the last 5 exchanges are sent to the provider you choose. With a local server such as Ollama, nothing leaves your machine.
 - API keys are stored in Windows Credential Manager. They are never written to the settings file, never shown again in the app, and only sent over HTTPS (plain HTTP is allowed for `localhost`).
 
 ## Features

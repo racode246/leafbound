@@ -1,5 +1,8 @@
 // Splitting book text into passages for the embedding model. Kept free of
 // epub.js and the DOM so it can be unit tested (chunk.test.ts).
+//
+// Changing how chunks are made? Bump CHUNK_INDEX in src-tauri/src/assistant/mod.rs so
+// already indexed books are indexed again.
 
 /** Characters per chunk sent to the embedding model (~512 tokens at most for Japanese). */
 export const CHUNK_SIZE = 500
