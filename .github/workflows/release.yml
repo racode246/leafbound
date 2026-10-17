@@ -55,6 +55,7 @@ jobs:
     if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: windows-latest
     # Holds the updater signing key (TAURI_SIGNING_PRIVATE_KEY[_PASSWORD]); deployable from main only.
+    environment: release
     permissions:
       contents: write
       id-token: write
@@ -62,7 +63,7 @@ jobs:
     env:
       TAG: ${{ needs.release-please.outputs.tag_name }}
       # Updater public key (minisign key ID 3541035D1389828D), the pair of the signing key.
-      UPDATER_PUBKEY_REAL: dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NDEwMzVEMTM4OTgyOEQKUldTTmdva1RYUU5CTmVFZjdCY25lbms4dTFBSjdlVGpjYlVMYXlMcFo0c28wRmloLytWVExkVlUK
+      UPDATER_PUBKEY: dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NDEwMzVEMTM4OTgyOEQKUldTTmdva1RYUU5CTmVFZjdCY25lbms4dTFBSjdlVGpjYlVMYXlMcFo0c28wRmloLytWVExkVlUK
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -106,17 +107,10 @@ jobs:
       # --locked fails the build if Cargo.lock was not updated with the version.
       # Updater artifacts (a .sig next to each installer) are enabled here rather than in
       # tauri.conf.json, so local builds do not need the signing key.
-      # TEMPORARY (PR verification only, reverted before merge): throwaway key, no environment.
-      - name: Throwaway signing key
-        run: |
-          $key = Join-Path $env:RUNNER_TEMP 'throwaway.key'
-          npx tauri signer generate --ci -p throwaway -w $key
-          if ($LASTEXITCODE -ne 0) { throw 'signer generate failed' }
-          "TAURI_SIGNING_PRIVATE_KEY=$((Get-Content $key -Raw).Trim())" >> $env:GITHUB_ENV
-          "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=throwaway" >> $env:GITHUB_ENV
-          "UPDATER_PUBKEY=$((Get-Content "$key.pub" -Raw).Trim())" >> $env:GITHUB_ENV
-
       - name: Build installers
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'TAURI_SIGNING_PRIVATE_KEY is not set' }
           # The bundler also requires plugins.updater.pubkey; merging the same key again is a no-op
@@ -171,9 +165,6 @@ jobs:
         with:
           subject-path: |
             dist-release/*.exe
-
-      # TEMPORARY: ship the throwaway public key so the artifact can be re-verified offline.
-      - run: $env:UPDATER_PUBKEY | Set-Content dist-release/throwaway.pub.b64
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
