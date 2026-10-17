@@ -1295,6 +1295,10 @@ button.danger:hover {
   background: rgba(127, 127, 127, 0.15);
 }
 
+.toc-item[aria-current='location'] {
+  font-weight: 700;
+}
+
 /* Assistant */
 
 .panel.assistant-panel {

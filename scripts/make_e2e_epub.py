@@ -5,9 +5,10 @@
 - cover-test.epub: a cover image and the kinds of publisher resources epub.js turns
   into blob:/data: URLs or inline styles (stylesheet, CSS background, <style>,
   style attributes, images), for the Content Security Policy check.
+- long-contents.epub: forty short chapters, so the Contents panel has to scroll.
 
 Run: python scripts/make_e2e_epub.py
-Writes both into e2e/fixtures/ (deterministic: fixed zip timestamps)
+Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
 """
 import base64
 import struct
@@ -218,6 +219,70 @@ def cover_book(out: Path = COVER_OUT) -> None:
     print(f"wrote {out}")
 
 
+LONG_OUT = FIXTURES / "long-contents.epub"
+LONG_CHAPTERS = 40
+# Zero-padded so no label is a prefix of another ("Chapter 1" / "Chapter 10").
+LONG_TITLE = "Chapter {:02d}"
+LONG_PARAGRAPH = (
+    "The lamp on the corner of the street turned every fifteen seconds, and each time it did the "
+    "shadows of the bookshelves slid across the floor of the shop like the hands of a slow clock. "
+    "Nobody who came in that evening seemed to notice, except the cat on the counter."
+)
+
+
+def long_chapter(n: int) -> str:
+    title = LONG_TITLE.format(n)
+    # Enough text for a few screens, so a test can read on and stay in the chapter.
+    paras = "\n".join(f"<p>{LONG_PARAGRAPH} ({n}.{i + 1})</p>" for i in range(14))
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head>'
+        f"<title>{title}</title></head><body><h1>{title}</h1>\n{paras}\n</body></html>\n"
+    )
+
+
+def write_long_contents(out: Path = LONG_OUT) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    ids = range(1, LONG_CHAPTERS + 1)
+    manifest = "\n".join(f'<item id="c{n}" href="c{n}.xhtml" media-type="application/xhtml+xml"/>' for n in ids)
+    spine = "\n".join(f'<itemref idref="c{n}"/>' for n in ids)
+    nav_items = "\n".join(f'<li><a href="c{n}.xhtml">{LONG_TITLE.format(n)}</a></li>' for n in ids)
+    opf = f"""<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-long-contents</dc:identifier>
+    <dc:title>Long Contents</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>en</dc:language>
+    <meta property="dcterms:modified">2026-10-18T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    {manifest}
+  </manifest>
+  <spine>{spine}</spine>
+</package>
+"""
+    nav = f"""<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Contents</title></head><body><nav epub:type="toc"><ol>{nav_items}</ol></nav></body></html>
+"""
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/nav.xhtml"), nav)
+        for n in ids:
+            z.writestr(entry(f"OEBPS/c{n}.xhtml"), long_chapter(n))
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
     cover_book()
+    write_long_contents()

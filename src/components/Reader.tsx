@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import ePub, { type Book as EpubBook, type Contents, type NavItem, type Rendition } from 'epubjs'
+import ePub, {
+  type Book as EpubBook,
+  type Contents,
+  EpubCFI,
+  type NavItem,
+  type Rendition
+} from 'epubjs'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
+import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
 import {
   HIGHLIGHT_COLORS,
   MIN_SPREAD_WIDTH,
@@ -40,6 +47,7 @@ interface Location {
     percentage?: number
     displayed?: { page: number; total: number }
   }
+  end?: { cfi: string; index: number }
 }
 
 type Panel = 'none' | 'toc' | 'settings' | 'search' | 'annotations' | 'assistant'
@@ -101,6 +109,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const [toc, setToc] = useState<NavItem[]>([])
   const tocRef = useRef<NavItem[]>([])
   tocRef.current = toc
+  // The TOC flattened against the spine once the navigation has loaded (null before).
+  const tocEntriesRef = useRef<TocEntry[] | null>(null)
+  // TocEntry.key of the entry for the reading position.
+  const [tocCurrent, setTocCurrent] = useState<string | null>(null)
   const [panel, setPanel] = useState<Panel>('none')
   // The assistant panel stays mounted once opened so a running answer or indexing survives switching panels.
   const [assistantMounted, setAssistantMounted] = useState(false)
@@ -322,8 +334,12 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           }
           if (!Number.isFinite(pct)) pct = 0
           persist(cfi, Math.min(1, Math.max(0, pct)))
-          const item = findTocItem(epubBook, tocRef.current, cfi)
-          if (item) setChapter(item)
+          const entries = tocEntriesRef.current
+          if (entries) {
+            const entry = currentTocEntry(entries, loc.start.index, anchorPlace(rendition, loc))
+            setChapter(entry?.label ?? '')
+            setTocCurrent(entry?.key ?? null)
+          }
         }
         reportRef.current = async () => {
           const r = renditionRef.current
@@ -379,6 +395,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         const nav = await epubBook.loaded.navigation
         if (disposed) return
         tocRef.current = nav.toc
+        tocEntriesRef.current = flattenToc(nav.toc, spineHrefs(epubBook))
         setToc(nav.toc)
         await reportRef.current?.()
 
@@ -405,6 +422,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       disposed = true
       renditionRef.current = null
       reportRef.current = null
+      tocEntriesRef.current = null
       bookRef.current = null
       try {
         epubBook?.destroy()
@@ -513,7 +531,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const chapterAtPage = (target: number): string | null => {
     const b = bookRef.current
     const cfi = b?.locations.cfiFromLocation(target - 1) as unknown
-    return typeof cfi === 'string' ? findTocItem(b ?? null, tocRef.current, cfi) : null
+    const entries = tocEntriesRef.current
+    const section = b && typeof cfi === 'string' ? b.spine.get(cfi) : null
+    if (!entries || !section) return null
+    // The page may not be displayed, so its anchors are not looked up.
+    return currentTocEntry(entries, section.index, () => 'unknown')?.label ?? null
   }
 
   const runSearch = (q: string) => {
@@ -699,6 +721,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         {panel === 'toc' && (
           <TocPanel
             toc={toc}
+            current={tocCurrent}
             onNavigate={(href) => {
               setPanel('none')
               void goTo(href)
@@ -826,11 +849,33 @@ function pageFromCfi(book: EpubBook, cfi: string): number {
   return Math.min(total, Math.max(1, loc))
 }
 
-function findTocItem(book: EpubBook | null, toc: NavItem[], cfi: string): string | null {
-  if (!book || toc.length === 0) return null
-  const spineItem = (book.spine as unknown as { get(target: string): { href: string } | null }).get(
-    cfi
+function spineHrefs(book: EpubBook): string[] {
+  return (book.spine as unknown as { spineItems: { href: string }[] }).spineItems.map((s) => s.href)
+}
+
+/**
+ * Where a TOC anchor ("#id") is relative to the screen, looked up in the displayed section.
+ * An anchor counts as reached once it is on screen, so an entry chosen from the panel is
+ * marked even when its heading is halfway down the page.
+ */
+function anchorPlace(rendition: Rendition, loc: Location): (fragment: string) => AnchorPlace {
+  const index = loc.start.index
+  // epub.js types declare a single Contents, but the runtime returns an array.
+  const contents = (rendition.getContents() as unknown as Contents[]).find(
+    (c) => c.sectionIndex === index
   )
-  if (!spineItem) return null
-  return tocLabelForHref(toc, spineItem.href)
+  const cfi = new EpubCFI()
+  return (fragment) => {
+    let el: Element | null = null
+    try {
+      el = contents?.document.getElementById(decodeURIComponent(fragment)) ?? null
+    } catch {
+      // malformed escape in the href
+    }
+    if (!contents || !el) return 'unknown'
+    // The screen runs into the next section, so the rest of this one is on it.
+    if (loc.end && loc.end.index > index) return 'reached'
+    const screenEnd = loc.end?.cfi ?? loc.start.cfi
+    return cfi.compare(contents.cfiFromNode(el), screenEnd) <= 0 ? 'reached' : 'ahead'
+  }
 }
