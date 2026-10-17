@@ -78,26 +78,19 @@ jobs:
           if ($env:TAG -and $env:TAG -ne "v$pkg") { throw "tag $env:TAG does not match version $pkg" }
           "version=$pkg" >> $env:GITHUB_OUTPUT
 
+      # No caches in this job (no `cache:` here, no rust-cache, no actions/cache): the
+      # installers are built only from the checkout and the locked dependencies, so
+      # nothing that runs in CI (which shares cache keys with this job) can affect a release.
+      # setup-node would also cache on its own once package.json names npm in packageManager.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-          cache: npm
+          package-manager-cache: false
 
       - name: Install npm packages
         run: npm ci
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: src-tauri
-
-      # Prebuilt ONNX Runtime fetched by the `ort` crate at build time.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/AppData/Local/ort.pyke.io
-          key: ort-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ort-${{ runner.os }}-
 
       - name: Rust tests
         working-directory: src-tauri

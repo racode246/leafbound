@@ -8,6 +8,17 @@ on:
 permissions:
   contents: read
 
+# Rust: the stable toolchain that comes with the runner image, not updated in each job
+# (that took 20-27 s per job). It can lag the latest stable by about a week, one image
+# cycle; release.yml installs the latest. These two were set by dtolnay/rust-toolchain.
+#
+# CARGO_HOME (the registry, about 31,000 files once unpacked) goes on the runner's D: drive,
+# next to the workspace: Cargo unpacks the crates about 3x faster there than on C:, the
+# image's OS disk. The toolchain itself (RUSTUP_HOME) stays on C:.
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -22,9 +33,31 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-          cache: npm
+
+      # The image's disk (C:) is slow on first read, and the first compile spent about 10 s
+      # paging in rustc (rustc_driver is a 200 MB DLL). Read the toolchain once in the
+      # background while the next steps run.
+      - name: Warm up the Rust toolchain
+        run: |
+          $warm = {
+            $sysroot = rustc --print sysroot
+            Get-ChildItem -Recurse -File "$sysroot\bin", "$sysroot\lib\rustlib\x86_64-pc-windows-msvc\lib" |
+              Where-Object Extension -ne '.pdb' |
+              ForEach-Object { $f = [IO.File]::OpenRead($_.FullName); $f.CopyTo([IO.Stream]::Null); $f.Dispose() }
+            "toolchain read by $(Get-Date -Format o)" > "$env:RUNNER_TEMP\rust-warm.txt"
+          }
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($warm.ToString()))
+          Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $encoded
+
+      # node_modules itself, keyed on the lockfile: on a hit there is nothing to install.
+      - id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json') }}
 
       - name: Install npm packages
+        if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
@@ -48,9 +81,18 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          components: clippy, rustfmt
+      # The runner image's stable Rust, used as is (see the env above).
+      - name: Rust toolchain
+        run: |
+          "CARGO_HOME=$env:RUNNER_TEMP\cargo" >> $env:GITHUB_ENV
+          Get-Content "$env:RUNNER_TEMP\rust-warm.txt" -ErrorAction Ignore
+          $installed = rustup component list --installed
+          foreach ($c in 'clippy', 'rustfmt') {
+            if (-not ($installed -match "^$c-")) { rustup component add $c }
+          }
+          rustc -vV
+          cargo clippy -V
+          cargo fmt --version
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -86,9 +128,16 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-          cache: npm
+
+      # node_modules itself, keyed on the lockfile: on a hit there is nothing to install.
+      - id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json') }}
 
       - name: Install npm packages
+        if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
@@ -106,22 +155,56 @@ jobs:
           if-no-files-found: ignore
 
   # The real app (built with an E2E identifier) over WebView2 CDP, with a fake LLM.
+  # The app tests run one at a time (one app per machine), so they are split across three
+  # runners; each builds the app and runs a third of the tests (whole files, so a shard can
+  # take more or fewer).
   e2e-app:
+    name: e2e-app (${{ matrix.shard }}/3)
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-          cache: npm
+
+      # The image's disk (C:) is slow on first read, and the first compile spent about 10 s
+      # paging in rustc (rustc_driver is a 200 MB DLL). Read the toolchain once in the
+      # background while the next steps run.
+      - name: Warm up the Rust toolchain
+        run: |
+          $warm = {
+            $sysroot = rustc --print sysroot
+            Get-ChildItem -Recurse -File "$sysroot\bin", "$sysroot\lib\rustlib\x86_64-pc-windows-msvc\lib" |
+              Where-Object Extension -ne '.pdb' |
+              ForEach-Object { $f = [IO.File]::OpenRead($_.FullName); $f.CopyTo([IO.Stream]::Null); $f.Dispose() }
+            "toolchain read by $(Get-Date -Format o)" > "$env:RUNNER_TEMP\rust-warm.txt"
+          }
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($warm.ToString()))
+          Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $encoded
+
+      # node_modules itself, keyed on the lockfile: on a hit there is nothing to install.
+      - id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json') }}
 
       - name: Install npm packages
+        if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - name: Rust toolchain
+        run: |
+          "CARGO_HOME=$env:RUNNER_TEMP\cargo" >> $env:GITHUB_ENV
+          Get-Content "$env:RUNNER_TEMP\rust-warm.txt" -ErrorAction Ignore
+          rustc -vV
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -140,14 +223,14 @@ jobs:
           key: e2e-model-multilingual-e5-small-int8@761b726d
 
       - name: E2E (app)
-        run: npm run e2e:app
+        run: npm run e2e:app -- --shard=${{ matrix.shard }}/3
         env:
           E2E_MODEL_DIR: ${{ runner.temp }}/e2e-model
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: e2e-app
+          name: e2e-app-${{ matrix.shard }}
           path: |
             e2e/report/
             e2e/results/
