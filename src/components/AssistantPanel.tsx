@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Reac
 import { useT, type Translate } from '../i18n'
 import { api } from '../lib/api'
 import { indexBookText, type IndexControl, type IndexProgress } from '../lib/bookText'
+import { quoteText } from '../lib/quote'
 import {
   ASSISTANT_ERRORS,
   type AskRequest,
@@ -22,10 +23,17 @@ export type AskContext = Pick<
   'chapterTitle' | 'chapterText' | 'coveredSection' | 'percent'
 >
 
+/** Text selected in the book to quote into the question; a new `id` quotes again. */
+export interface QuoteRequest {
+  id: number
+  text: string
+}
+
 interface Props {
   book: Book
   settings: Settings
   hidden: boolean
+  quote: QuoteRequest | null
   onSettings: (patch: Partial<Settings>) => void
   /** Reads the current chapter around the reading position. */
   getContext: () => Promise<AskContext>
@@ -71,6 +79,7 @@ export default function AssistantPanel({
   book,
   settings,
   hidden,
+  quote,
   onSettings,
   getContext,
   chapterFor,
@@ -174,6 +183,30 @@ export default function AssistantPanel({
   useEffect(() => {
     if (!hidden && view === 'chat') inputRef.current?.focus()
   }, [hidden, view])
+
+  // A selection quoted from the book becomes the start of the question; the reader types
+  // the rest after it. Text already in the input is kept, and the quote goes on a new line.
+  const quoted = useRef<number | null>(null)
+  const caretToEnd = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new quote (id) inserts; t changing with the language must not insert it again
+  useEffect(() => {
+    if (!quote || quoted.current === quote.id) return
+    quoted.current = quote.id
+    const line = t('ai.quote', { text: quoteText(quote.text) })
+    setView('chat')
+    setDraft((d) => (d.trim() ? `${d.trimEnd()}\n${line}` : line))
+    caretToEnd.current = true
+  }, [quote])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: draft is the trigger: the caret moves once the quote is in the input
+  useEffect(() => {
+    const el = inputRef.current
+    if (!caretToEnd.current || !el) return
+    caretToEnd.current = false
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+    el.scrollTop = el.scrollHeight
+  }, [draft])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: these are triggers, not inputs: keep the conversation scrolled to the bottom as it grows
   useEffect(() => {
