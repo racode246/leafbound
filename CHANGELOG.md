@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/racode246/leafbound/compare/v0.3.0...v0.3.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **release:** drop 'closes #n' from the update notes ([#49](https://github.com/racode246/leafbound/issues/49)) ([307d7ca](https://github.com/racode246/leafbound/commit/307d7ca34931c00e3247abae9a0f8f66fcaa9681)), closes [#48](https://github.com/racode246/leafbound/issues/48)
+
 ## [0.3.0](https://github.com/racode246/leafbound/compare/v0.2.0...v0.3.0) (2026-10-17)
 
 

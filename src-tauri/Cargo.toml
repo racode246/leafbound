@@ -1,6 +1,6 @@
 [package]
 name = "leafbound"
-version = "0.3.0"
+version = "0.3.1"
 description = "A calm, open-source EPUB reader for Windows."
 authors = ["racode246"]
 license = "MIT"
