@@ -74,6 +74,11 @@ export class Reader {
       .getByRole('button', typeof name === 'string' ? { name, exact: true } : { name })
   }
 
+  /** The tooltip of a title bar button (hidden from screen readers, so not found by role). */
+  barTip(button: Locator): Locator {
+    return button.locator('.bar-tip')
+  }
+
   panel(name: string): Locator {
     return this.page.getByRole('complementary', { name })
   }

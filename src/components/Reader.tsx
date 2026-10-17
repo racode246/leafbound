@@ -1,4 +1,13 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  Highlighter,
+  Search,
+  TableOfContents,
+  Type
+} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import ePub, {
   type Book as EpubBook,
@@ -31,6 +40,7 @@ import SelectionMenu from './SelectionMenu'
 import AnnotationEditor from './AnnotationEditor'
 import PageNav from './PageNav'
 import Icon from './Icon'
+import BarButton from './BarButton'
 import AssistantPanel, { type AskContext } from './AssistantPanel'
 import { chapterContext } from '../lib/bookText'
 
@@ -618,7 +628,15 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   return (
     <div
       className="reader"
-      style={{ background: palette.bg, color: palette.chromeFg }}
+      style={
+        {
+          background: palette.bg,
+          color: palette.chromeFg,
+          // Tooltips (title bar buttons, the progress bar): the bar colours, inverted.
+          '--tip-bg': palette.chromeFg,
+          '--tip-fg': palette.chrome
+        } as CSSProperties
+      }
       data-theme={settings.theme}
     >
       <TitleBar
@@ -626,14 +644,12 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         fg={palette.chromeFg}
         border={palette.border}
         left={
-          <button
-            type="button"
-            className="bar-button"
+          <BarButton
+            icon={ArrowLeft}
+            label={t('reader.backTitle')}
+            align="start"
             onClick={onBack}
-            title={t('reader.backTitle')}
-          >
-            {t('reader.back')}
-          </button>
+          />
         }
         center={
           <div className="reader-title" data-tauri-drag-region>
@@ -648,43 +664,47 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         }
         right={
           <>
-            <button
-              type="button"
-              className={`bar-button ${panel === 'toc' ? 'active' : ''}`}
+            <BarButton
+              icon={TableOfContents}
+              label={t('reader.toc')}
+              active={panel === 'toc'}
               onClick={() => togglePanel('toc')}
-            >
-              {t('reader.toc')}
-            </button>
-            <button
-              type="button"
-              className={`bar-button ${panel === 'search' ? 'active' : ''}`}
+            />
+            <BarButton
+              icon={Search}
+              label={t('reader.search')}
+              tip={t('reader.searchTip')}
+              active={panel === 'search'}
               onClick={() => togglePanel('search')}
-              title="Ctrl+F"
-            >
-              {t('reader.search')}
-            </button>
-            <button
-              type="button"
-              className={`bar-button ${panel === 'annotations' ? 'active' : ''}`}
+            />
+            <BarButton
+              icon={Highlighter}
+              // The count is part of the name ("Highlights 1"), as it was when it was text.
+              label={
+                annotations.length > 0
+                  ? `${t('reader.highlights')} ${annotations.length}`
+                  : t('reader.highlights')
+              }
+              tip={t('reader.highlights')}
+              active={panel === 'annotations'}
               onClick={() => togglePanel('annotations')}
             >
-              {t('reader.highlights')}
               {annotations.length > 0 && <span className="bar-badge">{annotations.length}</span>}
-            </button>
-            <button
-              type="button"
-              className={`bar-button ${panel === 'assistant' ? 'active' : ''}`}
+            </BarButton>
+            <BarButton
+              icon={Bot}
+              label={t('reader.ask')}
+              active={panel === 'assistant'}
               onClick={() => togglePanel('assistant')}
-            >
-              {t('reader.ask')}
-            </button>
-            <button
-              type="button"
-              className={`bar-button ${panel === 'settings' ? 'active' : ''}`}
+            />
+            <BarButton
+              icon={Type}
+              label={t('reader.display')}
+              tip={t('reader.displayTip')}
+              active={panel === 'settings'}
+              align="end"
               onClick={() => togglePanel('settings')}
-            >
-              {t('reader.display')}
-            </button>
+            />
           </>
         }
       />
@@ -809,9 +829,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             background: palette.chrome,
             borderColor: palette.border,
             '--seek-fill': palette.link,
-            '--seek-track': palette.border,
-            '--tip-bg': palette.chromeFg,
-            '--tip-fg': palette.chrome
+            '--seek-track': palette.border
           } as CSSProperties
         }
       >

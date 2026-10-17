@@ -169,6 +169,60 @@ input:not([type]) {
   background: rgba(127, 127, 127, 0.15);
 }
 
+/* Icon-only title bar buttons (components/BarButton.tsx). */
+.bar-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 8px;
+}
+
+/* The button's label, below it. It is drawn over the reader (the book's iframe and the side
+   panels, z-index 20) and lines up with the button's centre, or with its outer edge at either
+   end of the bar so it stays inside the window. Hiding is quick; showing waits a moment so
+   the labels do not flash while the pointer crosses the bar. */
+.bar-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--tip-bg, var(--ink));
+  color: var(--tip-fg, var(--paper));
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 80ms,
+    visibility 0s 80ms;
+}
+
+.bar-tip-start {
+  left: 0;
+  transform: none;
+}
+
+.bar-tip-end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.bar-icon-button:hover > .bar-tip,
+.bar-icon-button:focus-visible > .bar-tip {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity 120ms 400ms,
+    visibility 0s 400ms;
+}
+
 .window-controls {
   display: flex;
   align-self: stretch;
@@ -1068,7 +1122,7 @@ input:not([type]) {
 
 .bar-badge {
   display: inline-block;
-  margin-left: 6px;
+  margin-left: 4px;
   padding: 0 6px;
   border-radius: 999px;
   background: rgba(127, 127, 127, 0.25);
