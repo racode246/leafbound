@@ -7,7 +7,7 @@ Playwright Test, in four layers with the rest of the test suite:
 | Rust unit/integration | `cargo test` | storage, retrieval, prompts, SSE | CI |
 | Frontend unit | Vitest (`npm test`) | pure TypeScript (chunking, i18n dictionaries) | CI |
 | **mock** | Playwright + installed Edge | UI behaviour against the in-memory mock backend (`src/lib/mockApi.ts`) | CI |
-| **app** | Playwright over WebView2 CDP | the real app: import, persistence across restarts, Ask AI wiring with a fake LLM, API keys | CI |
+| **app** | Playwright over WebView2 CDP | the real app: import, persistence across restarts, Ask AI wiring with a fake LLM, API keys, the Content Security Policy | CI |
 | **live** | Playwright, real LLM key | answer quality; run locally only, when working on a related issue | local |
 
 ## Running

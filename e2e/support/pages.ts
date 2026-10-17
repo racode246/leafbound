@@ -26,8 +26,37 @@ export class Reader {
   }
 
   async waitUntilShown(): Promise<void> {
-    await expect(this.page.locator('.reader-view iframe')).toBeVisible()
+    // Scrolled flow shows several chapter iframes at once.
+    await expect(this.page.locator('.reader-view iframe').first()).toBeVisible()
     await expect(this.page.locator('.reader-overlay')).toHaveCount(0)
+  }
+
+  /** Shows the Display panel (the title bar button toggles it). */
+  async display(): Promise<Locator> {
+    const panel = this.panel('Display')
+    if (!(await panel.isVisible())) await this.barButton('Aa Display').click()
+    await expect(panel).toBeVisible()
+    return panel
+  }
+
+  /** Picks a font in the Display panel by the option's label. */
+  async setFont(label: string): Promise<void> {
+    const panel = await this.display()
+    await panel
+      .locator('section', { has: this.page.getByRole('heading', { name: 'Font', exact: true }) })
+      .getByRole('combobox')
+      .selectOption({ label })
+  }
+
+  /** Searches the book and returns the hit buttons. */
+  async search(query: string): Promise<Locator> {
+    const panel = this.panel('Search in book')
+    if (!(await panel.isVisible())) await this.barButton('Search').click()
+    await panel.getByRole('searchbox').fill(query)
+    await panel.getByRole('searchbox').press('Enter')
+    const hits = panel.locator('.search-hit')
+    await expect(hits.first()).toBeVisible({ timeout: 60_000 })
+    return hits
   }
 
   /** A title bar button; pass a RegExp when the name carries a badge ("Highlights 1"). */
