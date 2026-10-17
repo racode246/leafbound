@@ -24,7 +24,14 @@ export default function BookCard({ book, onOpen, onCategories, onRefreshCover, o
       <button type="button" className="card-cover" onClick={onOpen} title={book.title}>
         <Cover book={book} />
         {book.progress && (
-          <span className="card-progress" aria-label={t('progress.aria', { pct })}>
+          <span
+            className="card-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-label={t('progress.aria', { pct })}
+          >
             <span style={{ width: `${pct}%` }} />
           </span>
         )}

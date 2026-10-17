@@ -365,6 +365,10 @@ input:not([type]) {
 
 .segmented {
   display: inline-flex;
+  /* a <fieldset>: drop its default margin, padding and min-content width */
+  margin: 0;
+  padding: 0;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;

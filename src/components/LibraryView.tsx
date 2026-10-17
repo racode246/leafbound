@@ -174,7 +174,7 @@ export default function LibraryView({
               <option value="title">{t('sort.title')}</option>
               <option value="author">{t('sort.author')}</option>
             </select>
-            <div className="segmented" role="group" aria-label={t('view.label')}>
+            <fieldset className="segmented" aria-label={t('view.label')}>
               <button
                 type="button"
                 className={view === 'grid' ? 'active' : ''}
@@ -193,7 +193,7 @@ export default function LibraryView({
               >
                 ☰
               </button>
-            </div>
+            </fieldset>
             <button type="button" className="primary" onClick={onImport}>
               {importProgress
                 ? t('lib.importing', { done: importProgress.done, total: importProgress.total })

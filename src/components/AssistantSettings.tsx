@@ -75,7 +75,7 @@ export default function AssistantSettingsView({
     <div className="assistant-scroll assistant-settings">
       <section>
         <h3>{t('ai.settings.provider')}</h3>
-        <div className="segmented wide" role="group">
+        <fieldset className="segmented wide">
           {PROVIDERS.map((p) => (
             <button
               type="button"
@@ -89,7 +89,7 @@ export default function AssistantSettingsView({
               {t(p.key)}
             </button>
           ))}
-        </div>
+        </fieldset>
         {provider === 'openai' && <p className="muted small">{t('ai.settings.openaiHint')}</p>}
       </section>
 
