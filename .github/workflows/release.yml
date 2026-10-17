@@ -119,8 +119,13 @@ jobs:
       - name: Build installers
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'TAURI_SIGNING_PRIVATE_KEY is not set' }
+          # The bundler also requires plugins.updater.pubkey; merging the same key again is a no-op
+          # once tauri.conf.json has it.
           $config = Join-Path $env:RUNNER_TEMP 'updater.conf.json'
-          '{ "bundle": { "createUpdaterArtifacts": true } }' | Set-Content -Encoding utf8 $config
+          @{
+            bundle = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{ pubkey = $env:UPDATER_PUBKEY } }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 $config
           npx tauri build --config $config -- --locked
           if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
 
