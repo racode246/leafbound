@@ -1,0 +1,138 @@
+name: Release
+
+# On every push to main, release-please opens or updates a release PR (version
+# bump + CHANGELOG from Conventional Commits). Merging that PR creates the tag
+# and a *draft* GitHub Release; the build job below then attaches the Windows
+# installers. Publishing the draft is done by hand.
+#
+# The build runs in this workflow (not on the tag push) because tags created
+# with GITHUB_TOKEN do not trigger other workflows.
+#
+# Running the workflow manually builds the installers as artifacts only.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+
+  build:
+    needs: release-please
+    # always(): still run for workflow_dispatch, where release-please is skipped.
+    if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
+
+      - name: Check version
+        id: version
+        run: |
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version\s*=\s*"(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($pkg -ne $cargo) { throw "version mismatch: package.json $pkg, Cargo.toml $cargo" }
+          if ($env:TAG -and $env:TAG -ne "v$pkg") { throw "tag $env:TAG does not match version $pkg" }
+          "version=$pkg" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Prebuilt ONNX Runtime fetched by the `ort` crate at build time.
+      - uses: actions/cache@v6
+        with:
+          path: ~/AppData/Local/ort.pyke.io
+          key: ort-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ort-${{ runner.os }}-
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+
+      # beforeBuildCommand runs `npm run build` (type check + frontend build).
+      # --locked fails the build if Cargo.lock was not updated with the version.
+      - name: Build installers
+        run: npx tauri build -- --locked
+
+      - name: Collect installers
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $bundle = 'src-tauri/target/release/bundle'
+          $files = @(
+            "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe",
+            "$bundle/msi/Leafbound_${env:VERSION}_x64_en-US.msi"
+          )
+          New-Item -ItemType Directory dist-release | Out-Null
+          foreach ($f in $files) {
+            if (-not (Test-Path $f)) { throw "missing $f" }
+            Copy-Item $f dist-release/
+          }
+          # Builds are not code-signed yet; checksums let people verify downloads.
+          Get-ChildItem dist-release | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content -Encoding ascii dist-release/SHA256SUMS.txt
+          Get-Content dist-release/SHA256SUMS.txt
+
+      - name: Attest build provenance
+        if: env.TAG != ''
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist-release/*.exe
+            dist-release/*.msi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: leafbound-${{ steps.version.outputs.version }}-windows
+          path: dist-release/
+          if-no-files-found: error
+
+      - name: Upload to the draft release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = gh release view $env:TAG --json isDraft | ConvertFrom-Json
+          if (-not $release) { throw "release $env:TAG not found" }
+          if (-not $release.isDraft) { throw "release $env:TAG is already published; not replacing its files" }
+          $assets = Get-ChildItem dist-release | ForEach-Object { $_.FullName }
+          gh release upload $env:TAG @assets --clobber
+          if ($LASTEXITCODE -ne 0) { throw "upload failed" }

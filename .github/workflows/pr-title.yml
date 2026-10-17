@@ -1,0 +1,19 @@
+name: PR title
+
+# release-please reads Conventional Commits. PRs are squash-merged with the PR
+# title as the commit message, so the title has to follow the convention
+# (e.g. "feat: ask an LLM about the book", "fix(reader): keep the page on resize").
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

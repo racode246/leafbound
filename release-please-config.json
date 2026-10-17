@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": false,
+  "draft": true,
+  "force-tag-creation": true,
+  "bump-minor-pre-major": true,
+  "bootstrap-sha": "a852468789c45cc78c924ac20d2498c3e4fdffa4",
+  "packages": {
+    ".": {
+      "extra-files": [
+        { "type": "toml", "path": "src-tauri/Cargo.toml", "jsonpath": "$.package.version" },
+        { "type": "toml", "path": "src-tauri/Cargo.lock", "jsonpath": "$.package[?(@.name.value == 'leafbound')].version" }
+      ]
+    }
+  }
+}

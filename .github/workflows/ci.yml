@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Leafbound is Windows-only (WebView2, Credential Manager).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+
+      # Type check + production build of the frontend (also gives Tauri its dist/).
+      - name: Build frontend
+        run: npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Prebuilt ONNX Runtime fetched by the `ort` crate at build time.
+      - uses: actions/cache@v6
+        with:
+          path: ~/AppData/Local/ort.pyke.io
+          key: ort-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ort-${{ runner.os }}-
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      # The embedding model test is #[ignore]d (it downloads ~135 MB).
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked

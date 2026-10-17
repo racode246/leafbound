@@ -91,7 +91,7 @@ fn stores_annotations_per_book() {
         created_at: "2026-10-07T00:00:00Z".into(),
         updated_at: "2026-10-07T00:00:00Z".into(),
     };
-    store.save_annotations(&book.id, &[note.clone()]).unwrap();
+    store.save_annotations(&book.id, std::slice::from_ref(&note)).unwrap();
     assert!(store.annotations_path(&book.id).exists());
 
     let reloaded = LibraryStore::load(dir.clone()).unwrap();
