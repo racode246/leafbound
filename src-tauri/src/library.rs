@@ -252,6 +252,10 @@ pub struct Library {
     pub settings: Settings,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Persisted {
@@ -263,6 +267,22 @@ struct Persisted {
     categories: Vec<String>,
     #[serde(default)]
     settings: Settings,
+    /// Whether files of books missing from `books` may be removed on startup.
+    /// False when the library had to start over (no readable `library.json`)
+    /// while book files already existed: they may belong to the lost library.
+    #[serde(default = "default_true")]
+    prune_orphans: bool,
+}
+
+/// How [`LibraryStore::load`] found `library.json`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoadStatus {
+    /// Read and parsed, so its book list is authoritative.
+    Loaded,
+    /// Not there (first start).
+    Missing,
+    /// There but unreadable or unparsable; the library started empty.
+    Unreadable,
 }
 
 #[derive(Debug)]
@@ -272,6 +292,7 @@ pub struct LibraryStore {
     annotations_dir: PathBuf,
     file: PathBuf,
     data: Persisted,
+    status: LoadStatus,
 }
 
 fn now() -> String {
@@ -287,9 +308,21 @@ impl LibraryStore {
         fs::create_dir_all(&covers_dir)?;
         fs::create_dir_all(&annotations_dir)?;
         let file = data_dir.join("library.json");
-        let data = match fs::read_to_string(&file) {
-            Ok(raw) => serde_json::from_str::<Persisted>(&raw).unwrap_or_default(),
-            Err(_) => Persisted::default(),
+        let (data, status) = match fs::read_to_string(&file) {
+            Ok(raw) => match serde_json::from_str::<Persisted>(&raw) {
+                Ok(data) => (data, LoadStatus::Loaded),
+                Err(err) => {
+                    eprintln!("library: {} is unparsable: {err}", file.display());
+                    (Persisted::default(), LoadStatus::Unreadable)
+                }
+            },
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                (Persisted::default(), LoadStatus::Missing)
+            }
+            Err(err) => {
+                eprintln!("library: {} is unreadable: {err}", file.display());
+                (Persisted::default(), LoadStatus::Unreadable)
+            }
         };
         let mut store = Self {
             books_dir,
@@ -297,9 +330,102 @@ impl LibraryStore {
             annotations_dir,
             file,
             data,
+            status,
         };
+        if status != LoadStatus::Loaded {
+            // Starting over. Book files already on disk may belong to a library
+            // that could not be read; keep them for good, even after this empty
+            // library is saved.
+            store.data.prune_orphans = store.book_files().is_empty();
+        }
         store.backfill_hashes();
         Ok(store)
+    }
+
+    /// Files under `books/`, `covers/` and `annotations/` named after a book
+    /// id, with that id. Anything else (other names, folders) is not ours.
+    fn book_files(&self) -> Vec<(PathBuf, String)> {
+        let mut out = Vec::new();
+        for (dir, ext) in [
+            (&self.books_dir, "epub"),
+            (&self.covers_dir, "img"),
+            (&self.annotations_dir, "json"),
+        ] {
+            let entries = match fs::read_dir(dir) {
+                Ok(entries) => entries,
+                Err(err) => {
+                    eprintln!("library: cannot list {}: {err}", dir.display());
+                    continue;
+                }
+            };
+            for entry in entries.flatten() {
+                if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                    continue;
+                }
+                let name = entry.file_name();
+                let Some(id) = name.to_str().and_then(|n| book_file_id(n, ext)) else {
+                    continue;
+                };
+                out.push((entry.path(), id.to_string()));
+            }
+        }
+        out
+    }
+
+    /// Removes the files of books that are no longer in the library (left
+    /// behind by a failed delete, or an import that never got committed).
+    ///
+    /// Does nothing unless `library.json` was read successfully: a missing or
+    /// broken one says nothing about which books exist. Nor when the library
+    /// is empty but `books/` holds book files (see below). Must run before any
+    /// import starts, since [`ImportDirs::prepare`] writes files under an id
+    /// that is only added to the library by [`LibraryStore::commit_import`].
+    /// Returns the removed files; failures are logged and skipped.
+    pub fn remove_orphaned_files(&mut self) -> Vec<PathBuf> {
+        match self.status {
+            LoadStatus::Loaded if self.data.prune_orphans => {}
+            LoadStatus::Loaded => {
+                eprintln!("library: keeping unknown book files (the library was reset)");
+                return Vec::new();
+            }
+            LoadStatus::Missing | LoadStatus::Unreadable => return Vec::new(),
+        }
+        let files = self.book_files();
+        if self.data.books.is_empty() && files.iter().any(|(p, _)| p.starts_with(&self.books_dir)) {
+            // An empty library next to stored books is most likely one that was
+            // reset and saved before `pruneOrphans` existed: the books are only
+            // hidden and can still be recovered by hand. Record that, so they
+            // are kept even once new books are added.
+            eprintln!("library: keeping book files of an empty library (it may have been reset)");
+            self.data.prune_orphans = false;
+            if let Err(err) = self.save() {
+                eprintln!("library: cannot save library.json: {err}");
+            }
+            return Vec::new();
+        }
+        let known: std::collections::HashSet<String> = self
+            .data
+            .books
+            .iter()
+            .map(|b| b.id.to_ascii_lowercase())
+            .collect();
+        let mut removed = Vec::new();
+        for (path, id) in files {
+            if known.contains(&id) {
+                continue;
+            }
+            match fs::remove_file(&path) {
+                Ok(()) => {
+                    eprintln!("library: removed orphaned file {}", path.display());
+                    removed.push(path);
+                }
+                Err(err) => eprintln!("library: cannot remove {}: {err}", path.display()),
+            }
+        }
+        if !removed.is_empty() {
+            eprintln!("library: removed {} orphaned file(s)", removed.len());
+        }
+        removed
     }
 
     /// Books imported before content hashing existed get a hash computed from
@@ -581,6 +707,16 @@ fn read_metadata(path: &Path) -> (Option<String>, Option<String>, Option<Vec<u8>
         }
         Err(_) => (None, None, None),
     }
+}
+
+/// The book id in a stored file name such as `<id>.epub`, matching how
+/// [`LibraryStore::book_path`] and friends name them: the id is a UUID in its
+/// lowercase hyphenated form and the extension is exactly `ext`. Any other
+/// name (temporary files, other casings, things a user put there) is `None`.
+fn book_file_id<'a>(name: &'a str, ext: &str) -> Option<&'a str> {
+    let id = name.strip_suffix(ext)?.strip_suffix('.')?;
+    let uuid = uuid::Uuid::parse_str(id).ok()?;
+    (uuid.hyphenated().to_string() == id).then_some(id)
 }
 
 fn hash_file(path: &Path) -> Result<String, String> {

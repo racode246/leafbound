@@ -18,8 +18,11 @@ export interface App {
   llm: FakeLlm
   /** Calls a Tauri command from the page. */
   invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T>
-  /** Quits and starts the app again on the same data (persistence checks). */
-  relaunch(): Promise<void>
+  /**
+   * Quits and starts the app again on the same data (persistence checks).
+   * `whileStopped` runs in between, e.g. to change files in the data directory.
+   */
+  relaunch(whileStopped?: () => void): Promise<void>
 }
 
 export interface AppOptions {
@@ -121,8 +124,9 @@ export const test = base.extend<AppOptions & { app: App }>({
             ).__TAURI_INTERNALS__.invoke(c, a),
           [cmd, args] as const
         ),
-      relaunch: async () => {
+      relaunch: async (whileStopped) => {
         await quit()
+        whileStopped?.()
         app.page = await launch([])
       }
     }
