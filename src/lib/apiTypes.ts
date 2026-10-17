@@ -1,4 +1,19 @@
-import type { Annotation, Book, ImportOutcome, Library, Settings } from '../types'
+import type {
+  Annotation,
+  ApiKeyStatus,
+  AskEvent,
+  AskRequest,
+  AssistantHistory,
+  AssistantStatus,
+  Book,
+  Exchange,
+  ImportOutcome,
+  IndexChunk,
+  Library,
+  LlmProvider,
+  PrepareEvent,
+  Settings
+} from '../types'
 
 export type Unlisten = () => void
 
@@ -31,4 +46,17 @@ export interface LeafboundApi {
   onOpenFiles(cb: (paths: string[]) => void): Promise<Unlisten>
   onDragDrop(cb: (event: DragDropEvent) => void): Promise<Unlisten>
   coverUrl(book: Book): string | null
+
+  // Reading assistant
+  assistantStatus(bookId: string): Promise<AssistantStatus>
+  /** Downloads (first use) and loads the local embedding model. */
+  assistantPrepare(onEvent: (event: PrepareEvent) => void): Promise<void>
+  assistantIndexSection(bookId: string, section: number, href: string, chapter: string, chunks: IndexChunk[]): Promise<void>
+  /** Stores the key in the OS credential store; it is never read back. */
+  setApiKey(provider: LlmProvider, key: string): Promise<ApiKeyStatus>
+  deleteApiKey(provider: LlmProvider): Promise<ApiKeyStatus>
+  assistantHistory(bookId: string): Promise<AssistantHistory>
+  clearAssistantHistory(bookId: string): Promise<void>
+  ask(request: AskRequest, onEvent: (event: AskEvent) => void): Promise<Exchange>
+  cancelAsk(requestId: string): Promise<void>
 }

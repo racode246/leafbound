@@ -1,7 +1,19 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { Channel, convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { Annotation, Book, ImportOutcome, Library, Settings } from '../types'
+import type {
+  Annotation,
+  ApiKeyStatus,
+  AskEvent,
+  AssistantHistory,
+  AssistantStatus,
+  Book,
+  Exchange,
+  ImportOutcome,
+  Library,
+  PrepareEvent,
+  Settings
+} from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { isEpubFile, listenHtml5DragDrop } from './dragDrop'
 import { mockApi } from './mockApi'
@@ -66,7 +78,26 @@ const tauriApi: LeafboundApi = {
   onDragDrop: async (cb) => listenHtml5DragDrop(cb),
 
   // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs
-  coverUrl: (book) => (book.hasCover ? `${convertFileSrc(book.id, 'lbcover')}?v=${book.coverVersion}` : null)
+  coverUrl: (book) => (book.hasCover ? `${convertFileSrc(book.id, 'lbcover')}?v=${book.coverVersion}` : null),
+
+  assistantStatus: (bookId) => invoke<AssistantStatus>('assistant_status', { bookId }),
+  assistantPrepare(onEvent) {
+    const channel = new Channel<PrepareEvent>()
+    channel.onmessage = onEvent
+    return invoke<void>('assistant_prepare', { onEvent: channel })
+  },
+  assistantIndexSection: (bookId, section, href, chapter, chunks) =>
+    invoke<void>('assistant_index_section', { bookId, section, href, chapter, chunks }),
+  setApiKey: (provider, key) => invoke<ApiKeyStatus>('assistant_set_api_key', { provider, key }),
+  deleteApiKey: (provider) => invoke<ApiKeyStatus>('assistant_delete_api_key', { provider }),
+  assistantHistory: (bookId) => invoke<AssistantHistory>('assistant_history', { bookId }),
+  clearAssistantHistory: (bookId) => invoke<void>('assistant_clear_history', { bookId }),
+  ask(request, onEvent) {
+    const channel = new Channel<AskEvent>()
+    channel.onmessage = onEvent
+    return invoke<Exchange>('assistant_ask', { request, onEvent: channel })
+  },
+  cancelAsk: (requestId) => invoke<void>('assistant_cancel', { requestId })
 }
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

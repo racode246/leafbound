@@ -4,6 +4,7 @@ use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::State;
 
 use crate::library::{Annotation, Book, Import, ImportOutcome, Library, Settings};
+use crate::assistant::AssistantState;
 use crate::{AppState, PendingOpen};
 
 type Store<'a> = State<'a, AppState>;
@@ -128,8 +129,10 @@ pub fn set_book_categories(state: Store<'_>, id: String, categories: Vec<String>
 }
 
 #[tauri::command]
-pub fn delete_book(state: Store<'_>, id: String) -> Result<(), String> {
-    lock(&state).delete_book(&id)
+pub fn delete_book(state: Store<'_>, assistant: State<'_, AssistantState>, id: String) -> Result<(), String> {
+    lock(&state).delete_book(&id)?;
+    assistant.forget_book(&id);
+    Ok(())
 }
 
 #[tauri::command]

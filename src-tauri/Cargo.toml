@@ -5,7 +5,7 @@ description = "A calm, open-source EPUB reader for Windows."
 authors = ["racode246"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.90"
 
 [lib]
 name = "leafbound_lib"
@@ -25,6 +25,14 @@ epub = "2"
 chrono = "0.4"
 sha2 = "0.10"
 imagesize = "0.13"
+# Reading assistant: local embeddings, SQLite vector store, LLM HTTP client, OS keychain.
+fastembed = { version = "7", default-features = false, features = ["ort-download-binaries-native-tls"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+sqlite-vec = "0.1.9"
+keyring = { version = "3", features = ["windows-native"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "native-tls", "charset", "http2", "system-proxy"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["fs", "io-util", "time"] }
 
 [profile.release]
 codegen-units = 1
@@ -35,3 +43,4 @@ strip = true
 
 [dev-dependencies]
 zip = { version = "3", default-features = false, features = ["deflate"] }
+tokio = { version = "1", features = ["rt"] }

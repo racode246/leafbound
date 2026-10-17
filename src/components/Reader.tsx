@@ -22,6 +22,8 @@ import AnnotationsPanel from './AnnotationsPanel'
 import SelectionMenu from './SelectionMenu'
 import AnnotationEditor from './AnnotationEditor'
 import PageNav from './PageNav'
+import AssistantPanel, { type AskContext } from './AssistantPanel'
+import { chapterContext } from '../lib/bookText'
 
 interface Props {
   book: Book
@@ -35,7 +37,7 @@ interface Location {
   start: { cfi: string; index: number; percentage?: number; displayed?: { page: number; total: number } }
 }
 
-type Panel = 'none' | 'toc' | 'settings' | 'search' | 'annotations'
+type Panel = 'none' | 'toc' | 'settings' | 'search' | 'annotations' | 'assistant'
 
 interface SelectionState {
   cfiRange: string
@@ -81,6 +83,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const tocRef = useRef<NavItem[]>([])
   tocRef.current = toc
   const [panel, setPanel] = useState<Panel>('none')
+  // The assistant panel stays mounted once opened so a running answer or indexing survives switching panels.
+  const [assistantMounted, setAssistantMounted] = useState(false)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorText, setErrorText] = useState('')
   const [percent, setPercent] = useState(book.progress?.percent ?? 0)
@@ -555,7 +559,25 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   const chapterForHit = (hit: SearchHit): string | null => tocLabelForHref(tocRef.current, hit.href)
 
-  const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? 'none' : p))
+  const togglePanel = (p: Panel) => {
+    if (p === 'assistant') setAssistantMounted(true)
+    setPanel((cur) => (cur === p ? 'none' : p))
+  }
+
+  const getAskContext = useCallback(async (): Promise<AskContext> => {
+    const r = renditionRef.current
+    let text = ''
+    let coveredSection: number | null = null
+    if (r) {
+      const loc = (await Promise.resolve(r.currentLocation() as unknown)) as Location | null
+      const ctx = chapterContext(r, loc?.start?.cfi ?? lastCfiRef.current, loc?.start?.index ?? null)
+      text = ctx.text
+      coveredSection = ctx.complete ? ctx.sectionIndex : null
+    }
+    return { chapterTitle: chapter || null, chapterText: text, coveredSection, percent }
+  }, [chapter, percent])
+
+  const chapterForHref = useCallback((href: string) => tocLabelForHref(tocRef.current, href), [])
 
   const editingAnnotation = editing ? annotations.find((a) => a.id === editing.id) ?? null : null
 
@@ -601,6 +623,13 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             >
               {t('reader.highlights')}
               {annotations.length > 0 && <span className="bar-badge">{annotations.length}</span>}
+            </button>
+            <button
+              type="button"
+              className={`bar-button ${panel === 'assistant' ? 'active' : ''}`}
+              onClick={() => togglePanel('assistant')}
+            >
+              {t('reader.ask')}
             </button>
             <button
               type="button"
@@ -670,6 +699,19 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
               setEditing({ id: a.id, x: rect.left - 160, y: rect.bottom })
             }}
             onDelete={(a) => deleteAnnotation(a.id)}
+            onClose={() => setPanel('none')}
+          />
+        )}
+
+        {assistantMounted && (
+          <AssistantPanel
+            book={book}
+            settings={settings}
+            hidden={panel !== 'assistant'}
+            onSettings={onSettings}
+            getContext={getAskContext}
+            chapterFor={chapterForHref}
+            onNavigate={(cfi) => void goTo(cfi)}
             onClose={() => setPanel('none')}
           />
         )}

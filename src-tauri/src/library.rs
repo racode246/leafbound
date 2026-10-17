@@ -58,6 +58,26 @@ pub struct Settings {
     /// "system" | "ja" | "en"
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default)]
+    pub assistant: AssistantSettings,
+}
+
+/// Which LLM answers questions about the book. The API key itself is kept in
+/// the OS credential store (see `assistant::secrets`), not here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AssistantSettings {
+    /// "anthropic" | "openai" (any OpenAI-compatible endpoint)
+    pub provider: String,
+    pub model: String,
+    /// Empty means the provider's official endpoint.
+    pub base_url: String,
+}
+
+impl Default for AssistantSettings {
+    fn default() -> Self {
+        Self { provider: "anthropic".into(), model: "claude-sonnet-5-5".into(), base_url: String::new() }
+    }
 }
 
 impl Default for Settings {
@@ -71,6 +91,7 @@ impl Default for Settings {
             font_size: 18,
             line_height: 1.7,
             language: default_language(),
+            assistant: AssistantSettings::default(),
         }
     }
 }
@@ -297,6 +318,14 @@ impl LibraryStore {
             categories: self.data.categories.clone(),
             settings: self.data.settings.clone(),
         }
+    }
+
+    pub fn book(&self, id: &str) -> Option<&Book> {
+        self.data.books.iter().find(|b| b.id == id)
+    }
+
+    pub fn settings(&self) -> &Settings {
+        &self.data.settings
     }
 
     pub fn book_path(&self, id: &str) -> PathBuf {

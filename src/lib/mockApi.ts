@@ -5,7 +5,7 @@
  * without Tauri), so the UI can be exercised without the native shell.
  * State lives in memory only; the sample book from /public is pre-loaded.
  */
-import type { Annotation, Book, Library, Settings } from '../types'
+import type { Annotation, ApiKeyStatus, Book, Exchange, Library, Settings } from '../types'
 import type { LeafboundApi } from './apiTypes'
 import { isEpubFile, listenHtml5DragDrop } from './dragDrop'
 
@@ -17,7 +17,8 @@ const DEFAULT_SETTINGS: Settings = {
   fontFamily: 'publisher',
   fontSize: 18,
   lineHeight: 1.7,
-  language: 'system'
+  language: 'system',
+  assistant: { provider: 'anthropic', model: 'claude-sonnet-5-5', baseUrl: '' }
 }
 
 const now = () => new Date().toISOString()
@@ -43,6 +44,14 @@ const files = new Map<string, () => Promise<ArrayBuffer>>([
 ])
 
 const annotations = new Map<string, Annotation[]>()
+
+// Assistant: no model or LLM in the browser; answers are canned so the UI can be exercised.
+const keys: ApiKeyStatus = { anthropic: false, openai: false }
+const indexed = new Map<string, Set<number>>()
+const exchanges = new Map<string, Exchange[]>()
+let modelLoaded = false
+const cancelled = new Set<string>()
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** Files chosen through the picker, keyed by the fake path handed back to the app. */
 const pendingPicks = new Map<string, File>()
 
@@ -160,5 +169,73 @@ export const mockApi: LeafboundApi = {
   takePendingOpenFiles: async () => [],
   onOpenFiles: async () => () => {},
   onDragDrop: async (cb) => listenHtml5DragDrop(cb),
-  coverUrl: () => null
+  coverUrl: () => null,
+
+  assistantStatus: async (bookId) => ({
+    modelDownloaded: modelLoaded,
+    modelLoaded,
+    downloadSize: 135_392_183,
+    indexedSections: [...(indexed.get(bookId) ?? [])],
+    keys: { ...keys }
+  }),
+  async assistantPrepare(onEvent) {
+    if (modelLoaded) return
+    const total = 135_392_183
+    for (let i = 1; i <= 5; i++) {
+      await sleep(150)
+      onEvent({ type: 'download', done: (total * i) / 5, total })
+    }
+    onEvent({ type: 'loading' })
+    await sleep(200)
+    modelLoaded = true
+  },
+  async assistantIndexSection(bookId, section) {
+    await sleep(30)
+    const set = indexed.get(bookId) ?? new Set<number>()
+    set.add(section)
+    indexed.set(bookId, set)
+  },
+  setApiKey: async (provider, key) => {
+    keys[provider] = key.trim().length > 0
+    return { ...keys }
+  },
+  deleteApiKey: async (provider) => {
+    keys[provider] = false
+    return { ...keys }
+  },
+  assistantHistory: async (bookId) => {
+    const list = exchanges.get(bookId) ?? []
+    const sessionId = list.at(-1)?.sessionId ?? null
+    return { sessionId, exchanges: clone(list.filter((e) => e.sessionId === sessionId)) }
+  },
+  clearAssistantHistory: async (bookId) => {
+    exchanges.delete(bookId)
+  },
+  async ask(request, onEvent) {
+    if (state.settings.assistant.provider === 'anthropic' && !keys.anthropic) throw 'NO_API_KEY'
+    onEvent({ type: 'stage', stage: 'searching' })
+    await sleep(200)
+    onEvent({ type: 'stage', stage: 'generating' })
+    const answer =
+      `(mock) 「${request.question}」への回答例です。現在の章の本文 ${request.chapterText.length} 文字を参照しました。` +
+      'ブラウザ版では LLM は呼ばれません。'
+    for (const piece of answer.match(/.{1,6}/gsu) ?? []) {
+      if (cancelled.delete(request.requestId)) throw 'CANCELLED'
+      await sleep(40)
+      onEvent({ type: 'delta', text: piece })
+    }
+    const exchange: Exchange = {
+      id: crypto.randomUUID(),
+      sessionId: request.sessionId,
+      question: request.question,
+      answer,
+      sources: [],
+      createdAt: now()
+    }
+    exchanges.set(request.bookId, [...(exchanges.get(request.bookId) ?? []), exchange])
+    return clone(exchange)
+  },
+  cancelAsk: async (requestId) => {
+    cancelled.add(requestId)
+  }
 }

@@ -1,3 +1,4 @@
+pub mod assistant;
 mod commands;
 mod cover;
 mod covers_protocol;
@@ -38,8 +39,9 @@ pub fn run() {
         .register_uri_scheme_protocol(covers_protocol::SCHEME, covers_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
-            let store = LibraryStore::load(data_dir)?;
+            let store = LibraryStore::load(data_dir.clone())?;
             app.manage(AppState(Mutex::new(store)));
+            app.manage(assistant::AssistantState::new(&data_dir)?);
             app.manage(PendingOpen(Mutex::new(epub_args(std::env::args().skip(1)))));
             Ok(())
         })
@@ -59,6 +61,15 @@ pub fn run() {
             commands::get_annotations,
             commands::save_annotations,
             commands::take_pending_open_files,
+            assistant::assistant_status,
+            assistant::assistant_prepare,
+            assistant::assistant_index_section,
+            assistant::assistant_set_api_key,
+            assistant::assistant_delete_api_key,
+            assistant::assistant_history,
+            assistant::assistant_clear_history,
+            assistant::assistant_ask,
+            assistant::assistant_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Leafbound");

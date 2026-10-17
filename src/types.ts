@@ -26,6 +26,26 @@ export interface Book {
 
 export type LanguageSetting = 'system' | 'ja' | 'en'
 
+export type LlmProvider = 'anthropic' | 'openai'
+
+export interface AssistantSettings {
+  provider: LlmProvider
+  model: string
+  /** Empty means the provider's official endpoint. */
+  baseUrl: string
+}
+
+/** Model filled in when switching provider. OpenAI-compatible servers vary, so none is assumed. */
+export const DEFAULT_MODELS: Record<LlmProvider, string> = {
+  anthropic: 'claude-sonnet-5-5',
+  openai: ''
+}
+
+export const DEFAULT_BASE_URLS: Record<LlmProvider, string> = {
+  anthropic: 'https://api.anthropic.com',
+  openai: 'https://api.openai.com/v1'
+}
+
 export interface Settings {
   view: ViewMode
   flow: Flow
@@ -35,6 +55,7 @@ export interface Settings {
   fontSize: number
   lineHeight: number
   language: LanguageSetting
+  assistant: AssistantSettings
 }
 
 export interface Library {
@@ -68,6 +89,73 @@ export interface SearchHit {
   sectionIndex: number
   href: string
 }
+
+/** Context the assistant cited: a retrieved passage (#n) or a highlight (Hn). */
+export interface AssistantSource {
+  label: string
+  kind: 'passage' | 'highlight'
+  cfi: string
+  excerpt: string
+}
+
+export interface Exchange {
+  id: string
+  sessionId: string
+  question: string
+  answer: string
+  sources: AssistantSource[]
+  createdAt: string
+}
+
+export interface ApiKeyStatus {
+  anthropic: boolean
+  openai: boolean
+}
+
+export interface AssistantStatus {
+  modelDownloaded: boolean
+  modelLoaded: boolean
+  /** Bytes fetched on first use. */
+  downloadSize: number
+  /** Spine indexes whose text is already in the vector store. */
+  indexedSections: number[]
+  keys: ApiKeyStatus
+}
+
+export type PrepareEvent = { type: 'download'; done: number; total: number } | { type: 'loading' }
+
+export type AskStage = 'highlights' | 'searching' | 'generating'
+
+export type AskEvent =
+  | { type: 'stage'; stage: AskStage }
+  | { type: 'sources'; sources: AssistantSource[] }
+  | { type: 'delta'; text: string }
+
+export interface AskRequest {
+  requestId: string
+  bookId: string
+  sessionId: string
+  question: string
+  chapterTitle: string | null
+  /** Text around the reading position in the current chapter. */
+  chapterText: string
+  /** Spine index of the current chapter when chapterText covers all of it. */
+  coveredSection: number | null
+  percent: number
+}
+
+export interface IndexChunk {
+  text: string
+  cfi: string
+}
+
+export interface AssistantHistory {
+  sessionId: string | null
+  exchanges: Exchange[]
+}
+
+/** Error codes returned by the assistant commands. */
+export const ASSISTANT_ERRORS = ['NO_API_KEY', 'MODEL_NOT_READY', 'REFUSED', 'CANCELLED'] as const
 
 export interface ImportOutcome {
   added: Book[]

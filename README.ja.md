@@ -1,15 +1,37 @@
 # Leafbound
 
-Windows 向けの、静かで軽いオープンソース EPUB リーダーです。
+Windows 向けの、静かで軽いオープンソース EPUB リーダーです。読んでいる本の内容を AI に質問できます。
 
 [English](README.md) | **日本語**
 
 ![Leafbound のライブラリ](docs/screenshot-library.png)
 
-Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.js](https://github.com/futurepress/epub.js) で作られています。本をローカルのライブラリに保管し、読んだ位置を覚え、読書の邪魔をしないことを目指しています。
+Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.js](https://github.com/futurepress/epub.js) で作られています。本をローカルのライブラリに保管し、読んだ位置を覚え、読書の邪魔をしないことを目指しています。本について話したくなったら「AI に質問」を開いてください。登場人物が誰だったか、3 章前に何があったか、先週引いたハイライトとこの一節がどうつながるか、といったことを聞けます。
+
+## AI に質問
+
+- 普段の言葉で、どの言語でも質問できます。回答は質問と同じ言語で、書かれた端から表示されます。
+- 回答の材料は 4 つです: いま読んでいる章 (読書位置の前後)、本全体から検索した箇所、あなたのハイライトとメモ、同じ本についての過去の会話。
+- 直近 5 往復の会話は文脈としてそのまま渡すので、「それはなぜ？」のような続きの質問ができます。それより前の会話も消えるわけではなく、関係があれば類似検索で呼び戻されます。
+- 回答には根拠が `[#1]` (本文) や `[H1]` (ハイライト) の形で付きます。クリックすると本のその箇所へ移動します。
+- Anthropic (既定のモデルは `claude-sonnet-5-5`) と、OpenAI 互換の API (OpenAI、OpenRouter、Ollama、LM Studio など) に対応しています。プロバイダ・モデル・URL はパネルの ⚙ で設定します。
+- 「新しい会話」で会話をやり直せます。履歴は本ごとに削除できます。
+
+### しくみ
+
+1. 初めてパネルを開くと、確認のうえで小さな多言語の検索用モデル ([multilingual-e5-small](https://huggingface.co/Xenova/multilingual-e5-small)、int8 ONNX、約 135 MB) をダウンロードします。取得するリビジョンは固定し、SHA-256 で検証しています。
+2. 本文を約 500 字ずつに区切り、この PC 上でベクトルに変換します。ベクトルは、ハイライトや過去の回答と一緒に、[sqlite-vec](https://github.com/asg017/sqlite-vec) を使ったローカルの SQLite データベースに保存されます。長編小説 1 冊でおよそ 10 秒です。
+3. 質問のたびに、質問文 (続きの質問では直前の質問も合わせて) をローカルでベクトルにし、近い本文・ハイライト・会話を探します。
+4. 見つかった材料からプロンプトを組み立て、設定したモデルに送ります。
+
+### プライバシーと API キー
+
+- 検索と索引作成はすべてこの PC 上で行います。プロバイダに送られるのは、質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話だけです。Ollama のようなローカルサーバーを使えば、何も PC の外に出ません。
+- API キーは Windows 資格情報マネージャーに保存します。設定ファイルには書かれず、アプリに再表示されることもなく、HTTPS でのみ送信します (平文の HTTP は `localhost` に限り許可)。
 
 ## 機能
 
+- AI に質問: 本文・ハイライト・過去の会話をもとに、本についての質問に根拠付きで答えます (上記参照)。
 - EPUB 2 / EPUB 3 を開けます。本はライブラリにコピーされ、元のファイルは変更しません。
 - 本ごとに読書位置を保存し、次回はそこから再開します。
 - ページ番号を指定して移動(Ctrl+G)、進捗バーのドラッグで移動。ページは本文を一定の文字数で区切ったもので、フォントやレイアウトを変えても番号は変わりません。
@@ -31,7 +53,7 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 下記の手順でソースからビルドすることもできます。NSIS インストーラと MSI が `src-tauri/target/release/bundle/` に生成されます。
 
-動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。
+動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。「AI に質問」にはプロバイダの API キー、またはローカルの OpenAI 互換サーバーが必要です。
 
 ## キーボード操作
 
@@ -42,6 +64,7 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 | `Ctrl+F` | 本文内検索 |
 | `Ctrl+G` | ページ指定で移動 |
 | `Esc` | 開いているパネルを閉じる |
+| `Enter` / `Shift+Enter` | AI に質問: 送信 / 改行 |
 
 ページ送りモードではマウスホイールでもページをめくれます。
 
@@ -49,10 +72,11 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 必要なもの:
 
-- Node.js 20 以上
-- Rust(stable、`x86_64-pc-windows-msvc`)
-- Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」ワークロード
+- Node.js 20.19 以上 または 22.12 以上 (Vite 8 の要件)
+- Rust 1.90 以上 (stable、`x86_64-pc-windows-msvc`)
+- Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」ワークロード。リンクのほか、同梱の C/C++ コード (SQLite、sqlite-vec、トークナイザのライブラリ) のコンパイルに使います。
 - WebView2 ランタイム(Windows 11 には同梱)
+- `src-tauri/target` 用に約 15 GB の空き容量
 
 ```bash
 npm install
@@ -60,11 +84,15 @@ npm run tauri dev      # ホットリロード付きで起動
 npm run tauri build    # インストーラと MSI を生成
 ```
 
+初回の Rust ビルドでは、`ort` クレートがビルド済みの ONNX Runtime (約 350 MB) を `cdn.pyke.io` からダウンロードし、検証したうえで静的リンクします。キャッシュは `%LOCALAPPDATA%\ort.pyke.io` に置かれます。オフラインでビルドする場合は、自分でビルドした ONNX Runtime を `ORT_LIB_LOCATION` で指定してください ([ort のリンク方法](https://ort.pyke.io/setup/linking))。
+
 チェック:
 
 ```bash
 npm run typecheck
 cargo test --manifest-path src-tauri/Cargo.toml
+# 検索用モデルをダウンロードして検索精度を確認 (任意):
+cargo test --manifest-path src-tauri/Cargo.toml --test embedding_model -- --ignored --nocapture
 ```
 
 ブラウザモード: `npm run dev` を実行し、ブラウザで http://localhost:1420 を開きます。Tauri の外ではメモリ上のモックバックエンドとサンプル本に切り替わるので、UI の作業に便利です。このモードでは何も保存されません。
@@ -79,14 +107,17 @@ cargo test --manifest-path src-tauri/Cargo.toml
 | `books\` | 取り込んだ EPUB のコピー |
 | `covers\` | 抽出した表紙画像 |
 | `annotations\` | ハイライトとメモ(本ごとに 1 ファイル) |
+| `assistant.sqlite` | AI に質問: 本文・ハイライト・会話のベクトルと会話履歴 |
+| `models\` | 検索用モデル (「AI に質問」の初回利用時にダウンロード) |
 
-ライブラリから本を削除すると、コピーとメモも削除されます。元のファイルには触れません。
+ライブラリから本を削除すると、コピー、メモ、「AI に質問」がその本について保存したデータも削除されます。元のファイルには触れません。API キーはこのフォルダではなく Windows 資格情報マネージャーにあります。
 
 ## ディレクトリ構成
 
 ```
 src/            React フロントエンド: ライブラリ、リーダー、設定、i18n
-src-tauri/      Rust バックエンド: ライブラリ保存、EPUB メタデータと表紙の抽出、IPC コマンド
+src-tauri/      Rust バックエンド: ライブラリ保存、EPUB メタデータと表紙の抽出、IPC コマンド、
+                読書アシスタント (ローカル embedding、ベクトルストア、LLM クライアント)
 scripts/        補助スクリプト: アプリアイコン、テスト用 EPUB、スクリーンショット用デモ本
 ```
 
