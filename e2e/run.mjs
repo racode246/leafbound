@@ -13,7 +13,7 @@
 //   E2E_SKIP_BUILD=1   reuse src-tauri/target/debug/leafbound.exe from a previous E2E build
 //   E2E_MODEL_DIR=dir  embedding model cache (copied in before, filled after a download; used by CI)
 import { spawn, spawnSync, execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pageTarget, Session, sleep } from './lib/cdp.mjs'
@@ -158,10 +158,17 @@ async function runApp(track) {
   const llm = await startFakeLlm(cfg.llmPort)
   cleanups.push(() => llm.close())
 
+  // The app's own output (Rust eprintln!, panics) goes to e2e/.out/app.log for CI artifacts.
+  mkdirSync(cfg.outDir, { recursive: true })
+  const appLog = createWriteStream(join(cfg.outDir, 'app.log'))
   const app = spawn(runExe, [join(root, 'e2e', 'fixtures', 'assistant-test.epub')], {
-    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cfg.appPort}` },
-    stdio: 'ignore'
+    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cfg.appPort}`, RUST_BACKTRACE: '1' },
+    stdio: ['ignore', 'pipe', 'pipe']
   })
+  app.stdout.pipe(appLog)
+  app.stderr.pipe(appLog)
+  let appExit = null
+  app.on('exit', (code, signal) => (appExit = `exited with ${code ?? signal}`))
   cleanups.push(async () => {
     killTree(app.pid)
     await sleep(1000)
@@ -174,12 +181,22 @@ async function runApp(track) {
     rmSync(runExe, { force: true })
   })
 
-  const s = track(
-    await Session.connect(await pageTarget(cfg.appPort, { timeout: 120000, match: (t) => !t.url.startsWith('devtools') }), {
-      outDir: cfg.outDir,
-      name: 'app'
-    })
-  )
+  let target
+  try {
+    target = await pageTarget(cfg.appPort, { timeout: 120000, match: (t) => !t.url.startsWith('devtools') })
+  } catch (err) {
+    // Say why: did the app die, is the CDP endpoint up, what targets exist?
+    let endpoint = 'CDP endpoint not reachable'
+    try {
+      const version = await (await fetch(`http://127.0.0.1:${cfg.appPort}/json/version`)).json()
+      const targets = await (await fetch(`http://127.0.0.1:${cfg.appPort}/json`)).json()
+      endpoint = `CDP up (${version.Browser}); targets: ${JSON.stringify(targets.map((t) => [t.type, t.url]))}`
+    } catch {
+      // keep the default message
+    }
+    throw new Error(`${err.message}; app ${appExit ?? 'still running'}; ${endpoint}; see e2e/.out/app.log`)
+  }
+  const s = track(await Session.connect(target, { outDir: cfg.outDir, name: 'app' }))
   await appSuite(s, { llm })
   s.check(JSON.stringify(appCredentials()) === JSON.stringify(credentialsBefore), "the installed app's Credential Manager entries are untouched")
   return s
