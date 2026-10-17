@@ -36,6 +36,16 @@ body,
   overflow: hidden;
 }
 
+/* The app shell never scrolls; its panels and lists do. `hidden` still makes body and #root
+   scroll containers that scripts, focus, find-in-page and scrollIntoView() can scroll, so
+   anything that pokes out sideways would shift the whole window. `clip` makes them plain
+   boxes: overflow is cut off and there is nothing to scroll. (html keeps `hidden`: its value
+   goes to the viewport, where `clip` would be read as `hidden` anyway.) */
+body,
+#root {
+  overflow: clip;
+}
+
 button,
 input,
 select {

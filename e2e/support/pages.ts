@@ -41,6 +41,14 @@ export class Reader {
     return this.page.getByRole('complementary', { name })
   }
 
+  /** Shows a side panel through its title bar button (the buttons toggle, so only if hidden). */
+  async showPanel(button: string | RegExp, name: string): Promise<Locator> {
+    const panel = this.panel(name)
+    if (!(await panel.isVisible())) await this.barButton(button).click()
+    await expect(panel).toBeVisible()
+    return panel
+  }
+
   get chapter(): Locator {
     return this.page.locator('.reader-chapter')
   }
@@ -135,6 +143,17 @@ export class Assistant {
     if (await consent.isVisible()) await consent.click()
     await expect(this.input).toBeEnabled({ timeout: 600_000 })
     await expect(this.panel.locator('.ai-progress')).toHaveCount(0, { timeout: 600_000 })
+  }
+
+  /** Stores an API key through the AI settings view and returns to the conversation. */
+  async saveKey(key: string): Promise<void> {
+    await this.open()
+    await this.panel.getByRole('button', { name: 'AI settings' }).click()
+    const keyField = this.panel.getByLabel('API key')
+    await keyField.fill(key)
+    await keyField.press('Enter')
+    await expect(this.panel.locator('h3 .value', { hasText: 'Saved' })).toBeVisible()
+    await this.panel.getByRole('button', { name: 'Done' }).click()
   }
 
   /** Sends a question and waits for the answer to finish. */
