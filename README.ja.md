@@ -49,9 +49,9 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 ## インストール
 
-[Releases ページ](https://github.com/racode246/leafbound/releases)からインストーラ(`Leafbound_<version>_x64-setup.exe`)または MSI をダウンロードしてください。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
+[Releases ページ](https://github.com/racode246/leafbound/releases)からインストーラ(`Leafbound_<version>_x64-setup.exe`)をダウンロードしてください。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
 
-下記の手順でソースからビルドすることもできます。NSIS インストーラと MSI が `src-tauri/target/release/bundle/` に生成されます。
+下記の手順でソースからビルドすることもできます。インストーラが `src-tauri/target/release/bundle/nsis/` に生成されます。
 
 動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。「AI に質問」にはプロバイダの API キー、またはローカルの OpenAI 互換サーバーが必要です。
 
@@ -81,7 +81,7 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 ```bash
 npm install
 npm run tauri dev      # ホットリロード付きで起動
-npm run tauri build    # インストーラと MSI を生成
+npm run tauri build    # インストーラを生成
 ```
 
 初回の Rust ビルドでは、`ort` クレートがビルド済みの ONNX Runtime (約 350 MB) を `cdn.pyke.io` からダウンロードし、検証したうえで静的リンクします。キャッシュは `%LOCALAPPDATA%\ort.pyke.io` に置かれます。オフラインでビルドする場合は、自分でビルドした ONNX Runtime を `ORT_LIB_LOCATION` で指定してください ([ort のリンク方法](https://ort.pyke.io/setup/linking))。

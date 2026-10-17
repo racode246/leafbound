@@ -129,8 +129,7 @@ jobs:
         run: |
           $bundle = 'src-tauri/target/release/bundle'
           $files = @(
-            "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe",
-            "$bundle/msi/Leafbound_${env:VERSION}_x64_en-US.msi"
+            "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe"
           )
           New-Item -ItemType Directory dist-release | Out-Null
           foreach ($f in $files) {
@@ -150,10 +149,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $bundle = 'src-tauri/target/release/bundle'
-          foreach ($f in "nsis/Leafbound_${env:VERSION}_x64-setup.exe.sig", "msi/Leafbound_${env:VERSION}_x64_en-US.msi.sig") {
-            if (-not (Test-Path "$bundle/$f")) { throw "missing $bundle/$f" }
-            Copy-Item "$bundle/$f" dist-release/
-          }
+          $sig = "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe.sig"
+          if (-not (Test-Path $sig)) { throw "missing $sig" }
+          Copy-Item $sig dist-release/
           $url = "https://github.com/${env:GITHUB_REPOSITORY}/releases/download/v${env:VERSION}/Leafbound_${env:VERSION}_x64-setup.exe"
           node scripts/updater-artifacts.mjs manifest --version $env:VERSION --installer "dist-release/Leafbound_${env:VERSION}_x64-setup.exe" --url $url --changelog CHANGELOG.md --out dist-release/latest.json
           if ($LASTEXITCODE -ne 0) { throw 'latest.json generation failed' }
@@ -167,7 +165,6 @@ jobs:
         with:
           subject-path: |
             dist-release/*.exe
-            dist-release/*.msi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
