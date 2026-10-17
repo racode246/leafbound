@@ -10,6 +10,14 @@ export class Library {
     return this.page.locator('.card', { hasText: title })
   }
 
+  /** Adds a book through the "+ Add EPUB" file picker (mock: the card title is the file name). */
+  async add(path: string, title: string): Promise<void> {
+    const chooser = this.page.waitForEvent('filechooser')
+    await this.page.getByRole('button', { name: '+ Add EPUB' }).click()
+    await (await chooser).setFiles(path)
+    await expect(this.card(title)).toBeVisible()
+  }
+
   async open(title: string): Promise<Reader> {
     await this.card(title).locator('.card-cover').click()
     const reader = new Reader(this.page)
@@ -98,9 +106,27 @@ export class Reader {
     return Number((await this.page.locator('.page-jump span').textContent())?.replace(/\D/g, ''))
   }
 
+  get toc(): Locator {
+    return this.panel('Table of contents')
+  }
+
+  tocEntry(title: string): Locator {
+    return this.toc.getByRole('button', { name: title, exact: true })
+  }
+
+  /** Entries marked as the reading position (there should be exactly one). */
+  get currentTocEntries(): Locator {
+    return this.toc.locator('[aria-current="location"]')
+  }
+
+  async showToc(): Promise<Locator> {
+    return this.showPanel('Contents', 'Table of contents')
+  }
+
+  /** Opens a chapter from the Contents panel (which closes it). */
   async openChapter(title: string): Promise<void> {
-    await this.barButton('Contents').click()
-    await this.panel('Table of contents').getByRole('button', { name: title, exact: true }).click()
+    await this.showToc()
+    await this.tocEntry(title).click()
     await expect(this.chapter).toContainText(title)
   }
 
