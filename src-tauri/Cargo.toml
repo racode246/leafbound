@@ -9,7 +9,9 @@ rust-version = "1.90"
 
 [lib]
 name = "leafbound_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Windows desktop only: the binary links the rlib. The template's staticlib/cdylib
+# (iOS/Android) would each bundle every dependency, ONNX Runtime included.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -33,6 +35,13 @@ keyring = { version = "3", features = ["windows-native"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "native-tls", "charset", "http2", "system-proxy"] }
 futures-util = "0.3"
 tokio = { version = "1", features = ["fs", "io-util", "time"] }
+
+# Keep debug builds small: line numbers for our own code, no debug info for dependencies.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
 
 [profile.release]
 codegen-units = 1

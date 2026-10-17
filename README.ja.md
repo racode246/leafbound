@@ -76,7 +76,7 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 - Rust 1.90 以上 (stable、`x86_64-pc-windows-msvc`)
 - Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」ワークロード。リンクのほか、同梱の C/C++ コード (SQLite、sqlite-vec、トークナイザのライブラリ) のコンパイルに使います。
 - WebView2 ランタイム(Windows 11 には同梱)
-- `src-tauri/target` 用に約 15 GB の空き容量
+- `src-tauri/target` 用に約 5 GB の空き容量
 
 ```bash
 npm install

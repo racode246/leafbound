@@ -76,7 +76,7 @@ Prerequisites:
 - Rust 1.90 or newer (stable, `x86_64-pc-windows-msvc`)
 - Visual Studio Build Tools 2022 with the "Desktop development with C++" workload. Besides linking, it compiles the bundled C/C++ code: SQLite, sqlite-vec and the tokenizer libraries.
 - WebView2 runtime (bundled with Windows 11)
-- About 15 GB of free disk space for `src-tauri/target`
+- About 5 GB of free disk space for `src-tauri/target`
 
 ```bash
 npm install
