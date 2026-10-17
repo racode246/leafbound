@@ -38,6 +38,7 @@ pub struct ChunkInput {
 
 #[derive(Debug, Clone)]
 pub struct ChunkHit {
+    pub id: i64,
     pub section: i64,
     pub href: String,
     pub chapter: String,
@@ -186,6 +187,11 @@ impl AssistantDb {
         chunks: &[(ChunkInput, Vec<f32>)],
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        // Chunks from an older index version (other model or chunker) are dead weight.
+        tx.execute("DELETE FROM chunks WHERE book_id = ?1 AND model <> ?2", params![book_id, model])
+            .map_err(|e| e.to_string())?;
+        tx.execute("DELETE FROM indexed_sections WHERE book_id = ?1 AND model <> ?2", params![book_id, model])
+            .map_err(|e| e.to_string())?;
         tx.execute(
             "DELETE FROM chunks WHERE book_id = ?1 AND model = ?2 AND section = ?3",
             params![book_id, model, section],
@@ -233,7 +239,7 @@ impl AssistantDb {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT section, href, chapter, cfi, text, vec_distance_cosine(embedding, ?3) AS d
+                "SELECT id, section, href, chapter, cfi, text, vec_distance_cosine(embedding, ?3) AS d
                  FROM chunks
                  WHERE book_id = ?1 AND model = ?2 AND (?4 IS NULL OR section <> ?4)
                  ORDER BY d LIMIT ?5",
@@ -242,19 +248,22 @@ impl AssistantDb {
         let rows = stmt
             .query_map(
                 params![book_id, model, vector_blob(query), exclude_section, limit as i64],
-                |r| {
-                    Ok(ChunkHit {
-                        section: r.get(0)?,
-                        href: r.get(1)?,
-                        chapter: r.get(2)?,
-                        cfi: r.get(3)?,
-                        text: r.get(4)?,
-                        distance: r.get(5)?,
-                    })
-                },
+                Self::chunk_from_row,
             )
             .map_err(|e| e.to_string())?;
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
+    fn chunk_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ChunkHit> {
+        Ok(ChunkHit {
+            id: r.get(0)?,
+            section: r.get(1)?,
+            href: r.get(2)?,
+            chapter: r.get(3)?,
+            cfi: r.get(4)?,
+            text: r.get(5)?,
+            distance: r.get(6)?,
+        })
     }
 
     // ---- highlights --------------------------------------------------------
@@ -524,6 +533,18 @@ mod tests {
         let hits = db.search_chunks("b", "m", &[1.0, 0.0], 10, None).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].text, "new");
+    }
+
+    #[test]
+    fn indexing_under_a_new_key_drops_the_old_index() {
+        let mut db = AssistantDb::open_in_memory().unwrap();
+        db.store_section("b", "v1", 0, "a", "", &[(chunk("old"), vec![1.0, 0.0])]).unwrap();
+        db.store_section("b", "v2", 0, "a", "", &[(chunk("new"), vec![1.0, 0.0])]).unwrap();
+        assert!(db.indexed_sections("b", "v1").unwrap().is_empty());
+        assert!(db.search_chunks("b", "v1", &[1.0, 0.0], 10, None).unwrap().is_empty());
+        let all = db.search_chunks("b", "v2", &[1.0, 0.0], 10, None).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].text, "new");
     }
 
     #[test]

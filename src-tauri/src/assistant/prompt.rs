@@ -134,6 +134,19 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     Prompt { system, messages, sources }
 }
 
+/// System prompt for the search step: the model writes the passage it expects
+/// would answer the question, and that text is embedded to find the real one.
+pub fn hypothetical_passage(title: &str, author: &str, chapter_text: &str) -> String {
+    let by = if author.trim().is_empty() { String::new() } else { format!(" by {}", author.trim()) };
+    format!(
+        "You help search inside the book \"{title}\"{by}. Write the passage of the book that would answer the \
+         user's question: 2-4 sentences of narrative text in the book's own language and style (see the excerpt), \
+         naming the people, places and events involved. If you do not know the book, write what such a passage \
+         would most likely say. Output only the passage.\n\n<excerpt>\n{}\n</excerpt>",
+        truncate(&one_line(chapter_text), 400)
+    )
+}
+
 /// Text used to look up material for a question. A follow-up such as "why?"
 /// says little on its own, so the previous question is prepended.
 pub fn search_text(question: &str, previous: Option<&Exchange>) -> String {
@@ -166,6 +179,7 @@ mod tests {
     #[test]
     fn builds_labelled_context_and_window() {
         let passages = [ChunkHit {
+            id: 1,
             section: 2,
             href: "c2.xhtml".into(),
             chapter: "第二章".into(),

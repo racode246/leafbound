@@ -6,6 +6,7 @@ pub mod db;
 pub mod embed;
 pub mod llm;
 pub mod prompt;
+pub mod search;
 pub mod secrets;
 
 use std::collections::HashMap;
@@ -20,11 +21,20 @@ use tauri::State;
 use crate::AppState;
 use db::{AssistantDb, ChunkInput, Exchange, HighlightRow, NewExchange};
 use embed::{Embedder, MODEL_ID};
-use llm::{ChatError, ChatRequest, Provider};
+use llm::{ChatError, ChatRequest, Provider, Role};
 
 /// Conversation window: the last N question/answer pairs go to the model verbatim.
 const WINDOW_EXCHANGES: usize = 5;
-const PASSAGE_HITS: usize = 6;
+const PASSAGE_HITS: usize = 8;
+/// Book chunks kept from one spine section, so one long chapter cannot crowd out the rest.
+const PASSAGES_PER_SECTION: usize = 2;
+/// Nearest chunks considered before capping per section.
+const CANDIDATES: usize = 40;
+
+/// Identifies how book chunks were made: the embedding model plus the chunker
+/// in src/lib/bookText.ts. Bump the suffix when chunking changes so books are
+/// indexed again; rows under an older key are dropped as sections are re-indexed.
+pub const CHUNK_INDEX: &str = "multilingual-e5-small-int8@761b726d/chunks-2";
 const HIGHLIGHT_HITS: usize = 5;
 const RELATED_HITS: usize = 3;
 /// Cosine distance cut-offs for optional context. With e5 a matching
@@ -119,7 +129,7 @@ pub fn assistant_status(state: Assistant<'_>, book_id: String) -> Result<Assista
         model_downloaded: state.embedder.is_downloaded(),
         model_loaded: state.embedder.is_loaded(),
         download_size: embed::total_download_size(),
-        indexed_sections: state.db().indexed_sections(&book_id, MODEL_ID)?,
+        indexed_sections: state.db().indexed_sections(&book_id, CHUNK_INDEX)?,
         keys: secrets::status(&state.key_service),
     })
 }
@@ -172,7 +182,7 @@ pub async fn assistant_index_section(
     let texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
     let vectors = state.blocking(move |e| e.embed_passages(&texts)).await?;
     let rows: Vec<(ChunkInput, Vec<f32>)> = chunks.into_iter().zip(vectors).collect();
-    state.db().store_section(&book_id, MODEL_ID, section, &href, &chapter, &rows)
+    state.db().store_section(&book_id, CHUNK_INDEX, section, &href, &chapter, &rows)
 }
 
 // ---- API keys -----------------------------------------------------------------
@@ -286,15 +296,50 @@ pub async fn assistant_ask(
     let _ = on_event.send(AskEvent::Stage { stage: "highlights" });
     sync_highlights(&state, &request.book_id, &annotations).await?;
 
+    let cancel = Arc::new(AtomicBool::new(false));
+    state
+        .asks
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .insert(request.request_id.clone(), Arc::clone(&cancel));
+    let _cancel_guard = CancelGuard { state: &state, id: request.request_id.clone() };
+    let model = settings.model.trim().to_string();
+
     let _ = on_event.send(AskEvent::Stage { stage: "searching" });
     let window = state.db().recent_exchanges(&request.book_id, &request.session_id, WINDOW_EXCHANGES)?;
     let search = prompt::search_text(&question, window.last());
-    let query = state.blocking(move |e| e.embed_query(&search)).await?;
+
+    // HyDE: ask the model for the passage it expects would answer the question and
+    // search with that. The small embedding model matches a question poorly against
+    // narrative text; tests/retrieval_eval.rs measured 9/16 -> 14-15/16 on a novel.
+    let hyde = ChatRequest {
+        provider,
+        base_url: settings.base_url.clone(),
+        model: model.clone(),
+        api_key: api_key.clone(),
+        system: prompt::hypothetical_passage(&title, &author, &request.chapter_text),
+        messages: vec![(Role::User, search.clone())],
+    };
+    let hypothetical = match llm::stream_chat(&state.http, &hyde, &cancel, |_| {}).await {
+        Ok(text) if !text.trim().is_empty() => Some(text),
+        Ok(_) => None,
+        Err(ChatError::Cancelled) => return Err(ERR_CANCELLED.into()),
+        Err(err) => {
+            eprintln!("assistant: search passage failed, searching with the question: {err:?}");
+            None
+        }
+    };
+    let search_for_embedding = search.clone();
+    let query = state.blocking(move |e| e.embed_query(&search_for_embedding)).await?;
+    let passage_query = match hypothetical {
+        Some(text) => state.blocking(move |e| e.embed_passages(&[text])).await?.remove(0),
+        None => query.clone(),
+    };
     let window_ids: Vec<String> = window.iter().map(|e| e.id.clone()).collect();
     let (passages, highlights, related) = {
         let db = state.db();
         (
-            db.search_chunks(&request.book_id, MODEL_ID, &query, PASSAGE_HITS, request.covered_section)?,
+            find_passages(&db, &request.book_id, &passage_query, request.covered_section)?,
             db.search_highlights(&request.book_id, MODEL_ID, &query, HIGHLIGHT_HITS, HIGHLIGHT_MAX_DISTANCE)?,
             db.search_exchanges(&request.book_id, MODEL_ID, &query, RELATED_HITS, RELATED_MAX_DISTANCE, &window_ids)?,
         )
@@ -318,22 +363,15 @@ pub async fn assistant_ask(
     let chat = ChatRequest {
         provider,
         base_url: settings.base_url.clone(),
-        model: settings.model.trim().to_string(),
+        model,
         api_key,
         system: built.system,
         messages: built.messages,
     };
-    let cancel = Arc::new(AtomicBool::new(false));
-    state
-        .asks
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .insert(request.request_id.clone(), Arc::clone(&cancel));
     let result = llm::stream_chat(&state.http, &chat, &cancel, |text| {
         let _ = on_event.send(AskEvent::Delta { text: text.to_string() });
     })
     .await;
-    state.asks.lock().unwrap_or_else(|p| p.into_inner()).remove(&request.request_id);
 
     let answer = match result {
         Ok(answer) if !answer.trim().is_empty() => answer,
@@ -360,6 +398,35 @@ pub async fn assistant_ask(
         embedding: &vector[0],
     })?;
     Ok(exchange)
+}
+
+/// Book passages for a search vector: the nearest chunks, at most
+/// `PASSAGES_PER_SECTION` from one chapter. `exclude_section` is a chapter
+/// already sent in full.
+pub fn find_passages(
+    db: &AssistantDb,
+    book_id: &str,
+    query: &[f32],
+    exclude_section: Option<i64>,
+) -> Result<Vec<db::ChunkHit>, String> {
+    let ranked = db.search_chunks(book_id, CHUNK_INDEX, query, CANDIDATES, exclude_section)?;
+    let ids: Vec<i64> = ranked.iter().map(|c| c.id).collect();
+    let section_of: HashMap<i64, i64> = ranked.iter().map(|c| (c.id, c.section)).collect();
+    let picked = search::spread(&ids, &section_of, PASSAGE_HITS, PASSAGES_PER_SECTION);
+    let mut by_id: HashMap<i64, db::ChunkHit> = ranked.into_iter().map(|c| (c.id, c)).collect();
+    Ok(picked.into_iter().filter_map(|id| by_id.remove(&id)).collect())
+}
+
+/// Removes a request's cancel flag however `assistant_ask` returns.
+struct CancelGuard<'a> {
+    state: &'a AssistantState,
+    id: String,
+}
+
+impl Drop for CancelGuard<'_> {
+    fn drop(&mut self) {
+        self.state.asks.lock().unwrap_or_else(|p| p.into_inner()).remove(&self.id);
+    }
 }
 
 /// Brings the highlight vectors in line with the book's annotations: new or
@@ -410,4 +477,29 @@ async fn sync_highlights(
         db.upsert_highlight(book_id, row, &vector)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chunk_index_names_the_embedding_model() {
+        assert!(CHUNK_INDEX.starts_with(MODEL_ID));
+    }
+
+    #[test]
+    fn passages_are_spread_over_sections() {
+        let mut db = AssistantDb::open_in_memory().unwrap();
+        let input = |t: &str| ChunkInput { text: t.into(), cfi: String::new() };
+        let near: Vec<(ChunkInput, Vec<f32>)> = (0..5).map(|i| (input(&format!("near {i}")), vec![1.0, 0.01 * i as f32])).collect();
+        db.store_section("b", CHUNK_INDEX, 0, "a", "", &near).unwrap();
+        db.store_section("b", CHUNK_INDEX, 1, "b", "", &[(input("far"), vec![0.0, 1.0])]).unwrap();
+        let hits = find_passages(&db, "b", &[1.0, 0.0], None).unwrap();
+        // Five near chunks in one section, but only PASSAGES_PER_SECTION of them are kept.
+        assert_eq!(hits.iter().filter(|h| h.section == 0).count(), PASSAGES_PER_SECTION);
+        assert!(hits.iter().any(|h| h.text == "far"));
+        // A chapter that is already in the prompt is left out.
+        assert!(find_passages(&db, "b", &[1.0, 0.0], Some(0)).unwrap().iter().all(|h| h.section != 0));
+    }
 }
