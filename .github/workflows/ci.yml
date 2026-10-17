@@ -66,6 +66,24 @@ jobs:
           cargo clippy -V
           cargo fmt --version
 
+      # Cargo's target dir on a Dev Drive (ReFS) in a VHD, mounted at src-tauri\target so no
+      # path changes. Plain ReFS where Dev Drive is not available.
+      - name: Dev Drive for the Cargo target dir
+        run: |
+          $part = New-VHD -Path "$env:RUNNER_TEMP\target.vhdx" -SizeBytes 64GB -Dynamic |
+            Mount-VHD -Passthru |
+            Initialize-Disk -PartitionStyle GPT -PassThru |
+            New-Partition -UseMaximumSize
+          try {
+            $part | Format-Volume -DevDrive -Confirm:$false -Force -ErrorAction Stop | Out-Null
+          } catch {
+            Write-Warning "Dev Drive not available, using ReFS: $_"
+            $part | Format-Volume -FileSystem ReFS -Confirm:$false -Force | Out-Null
+          }
+          $target = New-Item -ItemType Directory src-tauri\target
+          $part | Add-PartitionAccessPath -AccessPath $target.FullName
+          fsutil devdrv query $target.FullName
+
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
@@ -137,6 +155,24 @@ jobs:
 
       - name: Rust toolchain
         run: rustc -vV
+
+      # Cargo's target dir on a Dev Drive (ReFS) in a VHD, mounted at src-tauri\target so no
+      # path changes. Plain ReFS where Dev Drive is not available.
+      - name: Dev Drive for the Cargo target dir
+        run: |
+          $part = New-VHD -Path "$env:RUNNER_TEMP\target.vhdx" -SizeBytes 64GB -Dynamic |
+            Mount-VHD -Passthru |
+            Initialize-Disk -PartitionStyle GPT -PassThru |
+            New-Partition -UseMaximumSize
+          try {
+            $part | Format-Volume -DevDrive -Confirm:$false -Force -ErrorAction Stop | Out-Null
+          } catch {
+            Write-Warning "Dev Drive not available, using ReFS: $_"
+            $part | Format-Volume -FileSystem ReFS -Confirm:$false -Force | Out-Null
+          }
+          $target = New-Item -ItemType Directory src-tauri\target
+          $part | Add-PartitionAccessPath -AccessPath $target.FullName
+          fsutil devdrv query $target.FullName
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
