@@ -13,7 +13,8 @@ setup('build the E2E app', async ({ headless }) => {
   setup.setTimeout(30 * 60_000)
   const mode = join(workDir, 'build-mode.json')
   const built = existsSync(mode) ? JSON.parse(readFileSync(mode, 'utf8')) : null
-  if (process.env.E2E_SKIP_BUILD === '1' && existsSync(appExe) && built?.headless === headless) return
+  if (process.env.E2E_SKIP_BUILD === '1' && existsSync(appExe) && built?.headless === headless)
+    return
 
   // `--config` is merged as a JSON merge patch: arrays are replaced, so the window
   // list is copied whole with the browser arguments (and visibility) changed.
@@ -29,10 +30,14 @@ setup('build the E2E app', async ({ headless }) => {
   writeFileSync(config, JSON.stringify({ identifier, app: { windows } }))
 
   const cli = join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
-  const build = spawnSync(process.execPath, [cli, 'build', '--debug', '--no-bundle', '--config', config], {
-    cwd: root,
-    stdio: 'inherit'
-  })
+  const build = spawnSync(
+    process.execPath,
+    [cli, 'build', '--debug', '--no-bundle', '--config', config],
+    {
+      cwd: root,
+      stdio: 'inherit'
+    }
+  )
   if (build.status !== 0) throw new Error('tauri build failed')
   // Run a copy so a parallel `tauri dev` rebuild cannot replace the exe under the tests.
   copyFileSync(join(root, 'src-tauri', 'target', 'debug', 'leafbound.exe'), appExe)

@@ -6,7 +6,8 @@ import { chunkRanges } from './chunk'
 const CHAPTER_CONTEXT_CHARS = 6000
 const CONTEXT_BEFORE_POSITION = 1500
 
-const BLOCK_SELECTOR = 'p,div,li,h1,h2,h3,h4,h5,h6,blockquote,section,article,td,th,dt,dd,pre,figcaption'
+const BLOCK_SELECTOR =
+  'p,div,li,h1,h2,h3,h4,h5,h6,blockquote,section,article,td,th,dt,dd,pre,figcaption'
 const SKIP_SELECTOR = 'script,style,rt,rp,noscript'
 
 interface TextNodeSpan {
@@ -163,7 +164,11 @@ export interface ChapterContext {
 }
 
 /** Text of the displayed chapter around `cfi`, trimmed to CHAPTER_CONTEXT_CHARS. */
-export function chapterContext(rendition: Rendition, cfi: string | null, sectionIndex: number | null): ChapterContext {
+export function chapterContext(
+  rendition: Rendition,
+  cfi: string | null,
+  sectionIndex: number | null
+): ChapterContext {
   // epub.js types declare a single Contents, but the runtime returns an array.
   const all = rendition.getContents() as unknown as (Contents & { sectionIndex: number })[]
   const contents = all.find((c) => c.sectionIndex === sectionIndex) ?? all[0]
@@ -182,7 +187,10 @@ export function chapterContext(rendition: Rendition, cfi: string | null, section
       position = 0
     }
   }
-  const start = Math.max(0, Math.min(position - CONTEXT_BEFORE_POSITION, text.length - CHAPTER_CONTEXT_CHARS))
+  const start = Math.max(
+    0,
+    Math.min(position - CONTEXT_BEFORE_POSITION, text.length - CHAPTER_CONTEXT_CHARS)
+  )
   return {
     text: text.slice(start, start + CHAPTER_CONTEXT_CHARS),
     sectionIndex: contents.sectionIndex,

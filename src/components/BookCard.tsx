@@ -39,7 +39,11 @@ export default function BookCard({ book, onOpen, onCategories, onRefreshCover, o
         <div className="card-foot">
           <span className="card-status">{progressLabel(book, t)}</span>
           <span className="card-actions">
-            <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
+            <button
+              type="button"
+              title={t('card.categories')}
+              onClick={(e) => onCategories(e.currentTarget)}
+            >
               ⌂
             </button>
             <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>

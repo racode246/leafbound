@@ -69,7 +69,9 @@ export default function SearchPanel({
       </div>
 
       {running && progress && (
-        <p className="muted small">{t('search.searching', { done: progress.done, total: progress.total })}</p>
+        <p className="muted small">
+          {t('search.searching', { done: progress.done, total: progress.total })}
+        </p>
       )}
       {!running && hits && (
         <p className="muted small">

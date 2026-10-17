@@ -48,7 +48,11 @@ export default function BookRow({ book, onOpen, onCategories, onRefreshCover, on
         </div>
       </td>
       <td className="col-actions">
-        <button type="button" title={t('card.categories')} onClick={(e) => onCategories(e.currentTarget)}>
+        <button
+          type="button"
+          title={t('card.categories')}
+          onClick={(e) => onCategories(e.currentTarget)}
+        >
           ⌂
         </button>
         <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>

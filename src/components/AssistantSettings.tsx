@@ -82,7 +82,8 @@ export default function AssistantSettingsView({
               key={p.value}
               className={provider === p.value ? 'active' : ''}
               onClick={() => {
-                if (p.value !== provider) onSettings({ provider: p.value, model: DEFAULT_MODELS[p.value], baseUrl: '' })
+                if (p.value !== provider)
+                  onSettings({ provider: p.value, model: DEFAULT_MODELS[p.value], baseUrl: '' })
               }}
             >
               {t(p.key)}
@@ -97,7 +98,9 @@ export default function AssistantSettingsView({
         <input
           className="wide"
           value={model}
-          placeholder={provider === 'anthropic' ? DEFAULT_MODELS.anthropic : t('ai.settings.modelPlaceholder')}
+          placeholder={
+            provider === 'anthropic' ? DEFAULT_MODELS.anthropic : t('ai.settings.modelPlaceholder')
+          }
           onChange={(e) => setModel(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && commit()}
@@ -122,13 +125,16 @@ export default function AssistantSettingsView({
       <section>
         <h3>
           {t('ai.settings.apiKey')}{' '}
-          <span className="value">{hasKey ? t('ai.settings.keySaved') : t('ai.settings.keyMissing')}</span>
+          <span className="value">
+            {hasKey ? t('ai.settings.keySaved') : t('ai.settings.keyMissing')}
+          </span>
         </h3>
         <form
           className="inline-form"
           onSubmit={(e) => {
             e.preventDefault()
-            if (keyDraft.trim()) void run(() => api.setApiKey(provider, keyDraft), t('ai.settings.keyStored'))
+            if (keyDraft.trim())
+              void run(() => api.setApiKey(provider, keyDraft), t('ai.settings.keyStored'))
           }}
         >
           <input

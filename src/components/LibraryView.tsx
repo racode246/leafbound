@@ -49,7 +49,8 @@ export default function LibraryView({
     const q = query.trim().toLowerCase()
     const list = library.books.filter((b) => {
       if (selected === UNCATEGORIZED && b.categories.length > 0) return false
-      if (selected !== ALL_BOOKS && selected !== UNCATEGORIZED && !b.categories.includes(selected)) return false
+      if (selected !== ALL_BOOKS && selected !== UNCATEGORIZED && !b.categories.includes(selected))
+        return false
       if (q && !`${b.title} ${b.author}`.toLowerCase().includes(q)) return false
       return true
     })
@@ -62,7 +63,9 @@ export default function LibraryView({
       case 'added':
         return list.sort((a, b) => b.addedAt.localeCompare(a.addedAt))
       default:
-        return list.sort((a, b) => (b.lastOpenedAt ?? b.addedAt).localeCompare(a.lastOpenedAt ?? a.addedAt))
+        return list.sort((a, b) =>
+          (b.lastOpenedAt ?? b.addedAt).localeCompare(a.lastOpenedAt ?? a.addedAt)
+        )
     }
   }, [library.books, selected, query, sort, lang])
 
@@ -113,7 +116,11 @@ export default function LibraryView({
   }
 
   const heading =
-    selected === ALL_BOOKS ? t('lib.all') : selected === UNCATEGORIZED ? t('lib.uncategorized') : selected
+    selected === ALL_BOOKS
+      ? t('lib.all')
+      : selected === UNCATEGORIZED
+        ? t('lib.uncategorized')
+        : selected
 
   return (
     <div className="library">

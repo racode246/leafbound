@@ -51,7 +51,13 @@ export interface LeafboundApi {
   assistantStatus(bookId: string): Promise<AssistantStatus>
   /** Downloads (first use) and loads the local embedding model. */
   assistantPrepare(onEvent: (event: PrepareEvent) => void): Promise<void>
-  assistantIndexSection(bookId: string, section: number, href: string, chapter: string, chunks: IndexChunk[]): Promise<void>
+  assistantIndexSection(
+    bookId: string,
+    section: number,
+    href: string,
+    chapter: string,
+    chunks: IndexChunk[]
+  ): Promise<void>
   /** Stores the key in the OS credential store; it is never read back. */
   setApiKey(provider: LlmProvider, key: string): Promise<ApiKeyStatus>
   deleteApiKey(provider: LlmProvider): Promise<ApiKeyStatus>

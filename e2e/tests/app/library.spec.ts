@@ -3,7 +3,9 @@ import { Library } from '../../support/pages.ts'
 
 const BOOK = '古本屋のミケ'
 
-test('opens a book passed on the command line and keeps position and highlights after a restart', async ({ app }) => {
+test('opens a book passed on the command line and keeps position and highlights after a restart', async ({
+  app
+}) => {
   const library = new Library(app.page)
   await expect(library.card(BOOK)).toBeVisible()
   await expect(library.card(BOOK)).toContainText('Unread')
@@ -30,6 +32,8 @@ test.describe('Japanese UI', () => {
   test('shows the library and reader in Japanese', async ({ app }) => {
     await expect(app.page.getByText('すべての本').first()).toBeVisible()
     await app.page.locator('.card', { hasText: BOOK }).locator('.card-cover').click()
-    await expect(app.page.locator('.titlebar').getByRole('button', { name: 'AI に質問', exact: true })).toBeVisible()
+    await expect(
+      app.page.locator('.titlebar').getByRole('button', { name: 'AI に質問', exact: true })
+    ).toBeVisible()
   })
 })

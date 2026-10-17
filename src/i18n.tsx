@@ -30,7 +30,8 @@ const ja = {
   'lib.import': '＋ EPUB を追加',
   'lib.importing': '追加中… {done}/{total}',
   'lib.emptyTitle': 'まだ本がありません。',
-  'lib.emptyHint': 'EPUB ファイルをここにドラッグ＆ドロップするか、「EPUB を追加」から取り込みます。',
+  'lib.emptyHint':
+    'EPUB ファイルをここにドラッグ＆ドロップするか、「EPUB を追加」から取り込みます。',
   'lib.noMatch': '該当する本がありません。',
   'table.title': 'タイトル',
   'table.author': '著者',
@@ -43,7 +44,8 @@ const ja = {
   'progress.unread': '未読',
   'progress.done': '読了',
   'progress.aria': '進捗 {pct}%',
-  'confirm.deleteBook': '「{title}」をライブラリから削除しますか？\nファイルのコピーも削除されます。',
+  'confirm.deleteBook':
+    '「{title}」をライブラリから削除しますか？\nファイルのコピーも削除されます。',
   'confirm.deleteCategory': 'カテゴリ「{name}」を削除しますか？\n本は削除されません。',
   'notice.duplicates': 'すでに追加済みのためスキップしました: {names}',
   'notice.failed': '取り込めませんでした: {names}',
@@ -126,8 +128,10 @@ const ja = {
   'ai.new': '新しい会話',
   'ai.newConversation': '新しい会話を始める (これまでの会話も検索対象には残ります)',
   'ai.checking': '準備状況を確認中…',
-  'ai.download.intro': '本文やハイライトを検索するため、初回だけ検索用モデル (約 {size}MB) をダウンロードします。',
-  'ai.download.privacy': '検索はこの PC 内で行われます。LLM に送られるのは質問と、それに関係する本文・ハイライト・過去の会話だけです。',
+  'ai.download.intro':
+    '本文やハイライトを検索するため、初回だけ検索用モデル (約 {size}MB) をダウンロードします。',
+  'ai.download.privacy':
+    '検索はこの PC 内で行われます。LLM に送られるのは質問と、それに関係する本文・ハイライト・過去の会話だけです。',
   'ai.download.start': 'ダウンロードして準備する',
   'ai.download.progress': 'モデルをダウンロード中… {done} / {total} MB',
   'ai.loadingModel': '検索用モデルを読み込み中…',
@@ -140,7 +144,8 @@ const ja = {
   'ai.stage.generating': '回答を作成中…',
   'ai.needKey': 'Anthropic の API キーが未設定です。',
   'ai.openSettings': '設定を開く',
-  'ai.empty': 'この本について質問できます。いま読んでいる章、本全体、ハイライトやメモ、これまでの会話をもとに答えます。',
+  'ai.empty':
+    'この本について質問できます。いま読んでいる章、本全体、ハイライトやメモ、これまでの会話をもとに答えます。',
   'ai.placeholder': '質問を入力 (Enter で送信、Shift+Enter で改行)',
   'ai.placeholderWaiting': '準備ができるまでお待ちください',
   'ai.send': '送信',
@@ -154,11 +159,13 @@ const ja = {
   'ai.settings.provider': 'プロバイダ',
   'ai.provider.anthropic': 'Anthropic',
   'ai.provider.openai': 'OpenAI 互換',
-  'ai.settings.openaiHint': 'OpenAI のほか、OpenRouter・Ollama・LM Studio など /chat/completions に対応した API に使えます。',
+  'ai.settings.openaiHint':
+    'OpenAI のほか、OpenRouter・Ollama・LM Studio など /chat/completions に対応した API に使えます。',
   'ai.settings.model': 'モデル',
   'ai.settings.modelPlaceholder': '例: gpt-5, llama3.1',
   'ai.settings.baseUrl': 'API の URL',
-  'ai.settings.baseUrlHint': '空欄なら公式の URL を使います。Ollama の例: http://localhost:11434/v1',
+  'ai.settings.baseUrlHint':
+    '空欄なら公式の URL を使います。Ollama の例: http://localhost:11434/v1',
   'ai.settings.apiKey': 'API キー',
   'ai.settings.keySaved': '保存済み',
   'ai.settings.keyMissing': '未設定',
@@ -167,9 +174,11 @@ const ja = {
   'ai.settings.keyStored': 'API キーを保存しました。',
   'ai.settings.keyDelete': 'API キーを削除',
   'ai.settings.keyDeleted': 'API キーを削除しました。',
-  'ai.settings.keyHint': 'キーは Windows 資格情報マネージャーに保存され、アプリの画面や設定ファイルには残りません。ローカルの LLM サーバーでは不要です。',
+  'ai.settings.keyHint':
+    'キーは Windows 資格情報マネージャーに保存され、アプリの画面や設定ファイルには残りません。ローカルの LLM サーバーでは不要です。',
   'ai.settings.privacy': '送信される内容',
-  'ai.settings.privacyText': '質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話が、上で設定した API に送られます。',
+  'ai.settings.privacyText':
+    '質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話が、上で設定した API に送られます。',
   'ai.settings.history': '会話履歴',
   'ai.settings.clearHistory': 'この本の会話履歴を削除',
   'ai.settings.clearConfirm': 'この本についての会話履歴をすべて削除しますか？',
@@ -223,7 +232,8 @@ const en: Record<Key, string> = {
   'progress.unread': 'Unread',
   'progress.done': 'Finished',
   'progress.aria': 'Progress {pct}%',
-  'confirm.deleteBook': 'Remove “{title}” from the library?\nThe imported copy will be deleted too.',
+  'confirm.deleteBook':
+    'Remove “{title}” from the library?\nThe imported copy will be deleted too.',
   'confirm.deleteCategory': 'Delete the category “{name}”?\nBooks are kept.',
   'notice.duplicates': 'Already in the library, skipped: {names}',
   'notice.failed': 'Could not import: {names}',
@@ -306,8 +316,10 @@ const en: Record<Key, string> = {
   'ai.new': 'New chat',
   'ai.newConversation': 'Start a new conversation (earlier ones stay searchable)',
   'ai.checking': 'Checking setup…',
-  'ai.download.intro': 'To search the book text and your highlights, a search model (about {size} MB) is downloaded once.',
-  'ai.download.privacy': 'Searching happens on this PC. Only your question and the related passages, highlights and earlier conversations are sent to the LLM.',
+  'ai.download.intro':
+    'To search the book text and your highlights, a search model (about {size} MB) is downloaded once.',
+  'ai.download.privacy':
+    'Searching happens on this PC. Only your question and the related passages, highlights and earlier conversations are sent to the LLM.',
   'ai.download.start': 'Download and set up',
   'ai.download.progress': 'Downloading model… {done} / {total} MB',
   'ai.loadingModel': 'Loading the search model…',
@@ -320,7 +332,8 @@ const en: Record<Key, string> = {
   'ai.stage.generating': 'Writing an answer…',
   'ai.needKey': 'No Anthropic API key is set.',
   'ai.openSettings': 'Open settings',
-  'ai.empty': 'Ask anything about this book. Answers draw on the current chapter, the whole book, your highlights and notes, and earlier conversations.',
+  'ai.empty':
+    'Ask anything about this book. Answers draw on the current chapter, the whole book, your highlights and notes, and earlier conversations.',
   'ai.placeholder': 'Ask a question (Enter to send, Shift+Enter for a new line)',
   'ai.placeholderWaiting': 'Getting ready…',
   'ai.send': 'Send',
@@ -334,11 +347,13 @@ const en: Record<Key, string> = {
   'ai.settings.provider': 'Provider',
   'ai.provider.anthropic': 'Anthropic',
   'ai.provider.openai': 'OpenAI-compatible',
-  'ai.settings.openaiHint': 'Works with OpenAI and any /chat/completions API such as OpenRouter, Ollama or LM Studio.',
+  'ai.settings.openaiHint':
+    'Works with OpenAI and any /chat/completions API such as OpenRouter, Ollama or LM Studio.',
   'ai.settings.model': 'Model',
   'ai.settings.modelPlaceholder': 'e.g. gpt-5, llama3.1',
   'ai.settings.baseUrl': 'API URL',
-  'ai.settings.baseUrlHint': 'Leave empty for the official URL. Ollama example: http://localhost:11434/v1',
+  'ai.settings.baseUrlHint':
+    'Leave empty for the official URL. Ollama example: http://localhost:11434/v1',
   'ai.settings.apiKey': 'API key',
   'ai.settings.keySaved': 'Saved',
   'ai.settings.keyMissing': 'Not set',
@@ -347,9 +362,11 @@ const en: Record<Key, string> = {
   'ai.settings.keyStored': 'API key saved.',
   'ai.settings.keyDelete': 'Delete API key',
   'ai.settings.keyDeleted': 'API key deleted.',
-  'ai.settings.keyHint': 'The key is kept in Windows Credential Manager, never shown again or written to the settings file. Local LLM servers do not need one.',
+  'ai.settings.keyHint':
+    'The key is kept in Windows Credential Manager, never shown again or written to the settings file. Local LLM servers do not need one.',
   'ai.settings.privacy': 'What is sent',
-  'ai.settings.privacyText': 'Your question, the current chapter (up to about 6,000 characters), matching passages, highlights and notes, and the last 5 exchanges are sent to the API configured above.',
+  'ai.settings.privacyText':
+    'Your question, the current chapter (up to about 6,000 characters), matching passages, highlights and notes, and the last 5 exchanges are sent to the API configured above.',
   'ai.settings.history': 'Conversation history',
   'ai.settings.clearHistory': 'Delete conversations about this book',
   'ai.settings.clearConfirm': 'Delete all conversations about this book?',

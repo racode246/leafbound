@@ -32,7 +32,9 @@ export class Reader {
 
   /** A title bar button; pass a RegExp when the name carries a badge ("Highlights 1"). */
   barButton(name: string | RegExp): Locator {
-    return this.page.locator('.titlebar').getByRole('button', typeof name === 'string' ? { name, exact: true } : { name })
+    return this.page
+      .locator('.titlebar')
+      .getByRole('button', typeof name === 'string' ? { name, exact: true } : { name })
   }
 
   panel(name: string): Locator {
@@ -67,15 +69,18 @@ export class Reader {
 
   /** Selects a whole paragraph of the shown chapter (selection menu appears). */
   async selectParagraph(startsWith: string): Promise<void> {
-    await this.content.locator('p', { hasText: startsWith }).first().evaluate((p) => {
-      const doc = p.ownerDocument
-      const range = doc.createRange()
-      range.selectNodeContents(p)
-      const sel = doc.getSelection()!
-      sel.removeAllRanges()
-      sel.addRange(range)
-      doc.dispatchEvent(new Event('selectionchange'))
-    })
+    await this.content
+      .locator('p', { hasText: startsWith })
+      .first()
+      .evaluate((p) => {
+        const doc = p.ownerDocument
+        const range = doc.createRange()
+        range.selectNodeContents(p)
+        const sel = doc.getSelection()!
+        sel.removeAllRanges()
+        sel.addRange(range)
+        doc.dispatchEvent(new Event('selectionchange'))
+      })
     await expect(this.page.getByRole('toolbar')).toBeVisible()
   }
 
@@ -98,7 +103,9 @@ export class Assistant {
   }
 
   get input(): Locator {
-    return this.panel.getByRole('textbox', { name: 'Ask a question (Enter to send, Shift+Enter for a new line)' })
+    return this.panel.getByRole('textbox', {
+      name: 'Ask a question (Enter to send, Shift+Enter for a new line)'
+    })
   }
 
   get turns(): Locator {
@@ -119,7 +126,11 @@ export class Assistant {
   async waitUntilReady(): Promise<void> {
     const consent = this.panel.getByRole('button', { name: 'Download and set up' })
     // Without the model both the consent button and the (disabled) input are shown.
-    await expect.poll(async () => (await consent.isVisible()) || (await this.input.isEnabled()), { timeout: 60_000 }).toBe(true)
+    await expect
+      .poll(async () => (await consent.isVisible()) || (await this.input.isEnabled()), {
+        timeout: 60_000
+      })
+      .toBe(true)
     if (await consent.isVisible()) await consent.click()
     await expect(this.input).toBeEnabled({ timeout: 600_000 })
     await expect(this.panel.locator('.ai-progress')).toHaveCount(0, { timeout: 600_000 })

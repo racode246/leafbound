@@ -12,7 +12,15 @@ interface Props {
   onChange: (categories: string[]) => Promise<void>
 }
 
-export default function CategoryPicker({ book, categories, x, y, onClose, onCreate, onChange }: Props) {
+export default function CategoryPicker({
+  book,
+  categories,
+  x,
+  y,
+  onClose,
+  onCreate,
+  onChange
+}: Props) {
   const t = useT()
   const ref = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState('')
@@ -51,14 +59,24 @@ export default function CategoryPicker({ book, categories, x, y, onClose, onCrea
   const top = Math.min(y, window.innerHeight - 320)
 
   return (
-    <div className="popover" ref={ref} style={{ left, top }} role="dialog" aria-label={t('picker.aria')}>
+    <div
+      className="popover"
+      ref={ref}
+      style={{ left, top }}
+      role="dialog"
+      aria-label={t('picker.aria')}
+    >
       <div className="popover-title">{t('picker.title')}</div>
       {categories.length === 0 && <p className="muted small">{t('picker.none')}</p>}
       <ul className="popover-list">
         {categories.map((c) => (
           <li key={c}>
             <label>
-              <input type="checkbox" checked={book.categories.includes(c)} onChange={() => toggle(c)} />
+              <input
+                type="checkbox"
+                checked={book.categories.includes(c)}
+                onChange={() => toggle(c)}
+              />
               <span>{c}</span>
             </label>
           </li>
@@ -71,7 +89,11 @@ export default function CategoryPicker({ book, categories, x, y, onClose, onCrea
           void create()
         }}
       >
-        <input value={draft} placeholder={t('picker.new')} onChange={(e) => setDraft(e.target.value)} />
+        <input
+          value={draft}
+          placeholder={t('picker.new')}
+          onChange={(e) => setDraft(e.target.value)}
+        />
         <button type="submit" disabled={!draft.trim()}>
           {t('picker.create')}
         </button>

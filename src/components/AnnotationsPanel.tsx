@@ -9,7 +9,13 @@ interface Props {
   onClose: () => void
 }
 
-export default function AnnotationsPanel({ annotations, onSelect, onEdit, onDelete, onClose }: Props) {
+export default function AnnotationsPanel({
+  annotations,
+  onSelect,
+  onEdit,
+  onDelete,
+  onClose
+}: Props) {
   const t = useT()
   return (
     <aside className="panel annotations-panel" aria-label={t('hl.title')}>
@@ -24,7 +30,11 @@ export default function AnnotationsPanel({ annotations, onSelect, onEdit, onDele
       ) : (
         <ul className="hl-list">
           {annotations.map((a) => (
-            <li key={a.id} className="hl-item" style={{ borderLeftColor: HIGHLIGHT_COLORS[a.color] }}>
+            <li
+              key={a.id}
+              className="hl-item"
+              style={{ borderLeftColor: HIGHLIGHT_COLORS[a.color] }}
+            >
               <button type="button" className="hl-text" onClick={() => onSelect(a)}>
                 {a.text}
               </button>

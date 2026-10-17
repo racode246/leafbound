@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { Library } from '../../support/pages.ts'
 
-const toFullWidth = (n: number) => String(n).replace(/\d/g, (d) => String.fromCharCode(d.charCodeAt(0) + 0xfee0))
+const toFullWidth = (n: number) =>
+  String(n).replace(/\d/g, (d) => String.fromCharCode(d.charCodeAt(0) + 0xfee0))
 
 test.beforeEach(async ({ page }) => {
   // rafShim keeps epub.js running in a headless/background page (src/devShim.ts).
@@ -9,7 +10,9 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear())
 })
 
-test('jump to a page, seek with the progress bar, focus the page box with Ctrl+G', async ({ page }) => {
+test('jump to a page, seek with the progress bar, focus the page box with Ctrl+G', async ({
+  page
+}) => {
   const reader = await new Library(page).open('Leafbound サンプル')
   await expect(reader.pageBox).toBeEnabled({ timeout: 60_000 })
   const total = await reader.totalPages()
@@ -31,7 +34,9 @@ test('jump to a page, seek with the progress bar, focus the page box with Ctrl+G
   }, dragTo)
   await expect(page.locator('.seek-tip')).toBeVisible()
   await reader.seek.dispatchEvent('pointerup')
-  await expect.poll(async () => Math.abs((await reader.pageNumber()) - dragTo)).toBeLessThanOrEqual(1)
+  await expect
+    .poll(async () => Math.abs((await reader.pageNumber()) - dragTo))
+    .toBeLessThanOrEqual(1)
 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await page.keyboard.press('Control+g')

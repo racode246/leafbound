@@ -11,7 +11,11 @@ export const CHUNK_OVERLAP = 100
 const BOUNDARY = /[。．！？!?\n]|\.\s/g
 
 /** [start, end) ranges of roughly CHUNK_SIZE characters that prefer to end at a sentence. */
-export function chunkRanges(text: string, size = CHUNK_SIZE, overlap = CHUNK_OVERLAP): [number, number][] {
+export function chunkRanges(
+  text: string,
+  size = CHUNK_SIZE,
+  overlap = CHUNK_OVERLAP
+): [number, number][] {
   const out: [number, number][] = []
   let start = 0
   while (start < text.length) {
@@ -20,7 +24,8 @@ export function chunkRanges(text: string, size = CHUNK_SIZE, overlap = CHUNK_OVE
       const from = start + Math.floor(size * 0.6)
       BOUNDARY.lastIndex = from
       let cut = -1
-      for (let m = BOUNDARY.exec(text); m && m.index < end; m = BOUNDARY.exec(text)) cut = m.index + 1
+      for (let m = BOUNDARY.exec(text); m && m.index < end; m = BOUNDARY.exec(text))
+        cut = m.index + 1
       if (cut > from) end = cut
     }
     out.push([start, end])

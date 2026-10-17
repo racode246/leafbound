@@ -44,7 +44,8 @@ const killTree = (proc: ChildProcess | null) => {
 async function waitForCdp(proc: ChildProcess, timeout = 120_000): Promise<void> {
   const end = Date.now() + timeout
   while (Date.now() < end) {
-    if (proc.exitCode !== null) throw new Error(`the app exited with code ${proc.exitCode} before CDP came up (see app.log)`)
+    if (proc.exitCode !== null)
+      throw new Error(`the app exited with code ${proc.exitCode} before CDP came up (see app.log)`)
     try {
       const res = await fetch(`http://127.0.0.1:${ports.app}/json/version`)
       if (res.ok) return
@@ -53,7 +54,9 @@ async function waitForCdp(proc: ChildProcess, timeout = 120_000): Promise<void> 
     }
     await new Promise((r) => setTimeout(r, 250))
   }
-  throw new Error(`no CDP endpoint on port ${ports.app} after ${timeout / 1000}s; the app is still running (see app.log)`)
+  throw new Error(
+    `no CDP endpoint on port ${ports.app} after ${timeout / 1000}s; the app is still running (see app.log)`
+  )
 }
 
 async function appPage(browser: Browser): Promise<Page> {
@@ -74,8 +77,10 @@ export const test = base.extend<AppOptions & { app: App }>({
   openFiles: [[TEST_BOOK], { option: true }],
 
   app: async ({ seedOptions, openFiles }, use, testInfo) => {
-    if (testInfo.parallelIndex > 0) throw new Error('run the app project with --workers=1 (npm run e2e:app)')
-    if (!existsSync(appExe)) throw new Error(`no E2E build at ${appExe}; run the app-build project first`)
+    if (testInfo.parallelIndex > 0)
+      throw new Error('run the app project with --workers=1 (npm run e2e:app)')
+    if (!existsSync(appExe))
+      throw new Error(`no E2E build at ${appExe}; run the app-build project first`)
 
     const llm = await startFakeLlm()
     seed({ ...seedOptions, llmUrl: llm.url })
@@ -85,7 +90,10 @@ export const test = base.extend<AppOptions & { app: App }>({
     let proc: ChildProcess | null = null
     let browser: Browser | null = null
     const launch = async (files: string[]) => {
-      proc = spawn(appExe, files, { env: { ...process.env, RUST_BACKTRACE: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      proc = spawn(appExe, files, {
+        env: { ...process.env, RUST_BACKTRACE: '1' },
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
       proc.stdout?.pipe(log, { end: false })
       proc.stderr?.pipe(log, { end: false })
       await waitForCdp(proc)
@@ -105,7 +113,12 @@ export const test = base.extend<AppOptions & { app: App }>({
       llm,
       invoke: (cmd, args = {}) =>
         app.page.evaluate(
-          ([c, a]) => (window as unknown as { __TAURI_INTERNALS__: { invoke(c: string, a: unknown): Promise<never> } }).__TAURI_INTERNALS__.invoke(c, a),
+          ([c, a]) =>
+            (
+              window as unknown as {
+                __TAURI_INTERNALS__: { invoke(c: string, a: unknown): Promise<never> }
+              }
+            ).__TAURI_INTERNALS__.invoke(c, a),
           [cmd, args] as const
         ),
       relaunch: async () => {
@@ -124,7 +137,10 @@ export const test = base.extend<AppOptions & { app: App }>({
       keepDownloadedModel()
       removeAppData()
     }
-    expect(installedAppCredentials(), "the installed app's Credential Manager entries are untouched").toEqual(credentialsBefore)
+    expect(
+      installedAppCredentials(),
+      "the installed app's Credential Manager entries are untouched"
+    ).toEqual(credentialsBefore)
   }
 })
 

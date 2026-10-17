@@ -34,7 +34,12 @@ interface Props {
 }
 
 interface Location {
-  start: { cfi: string; index: number; percentage?: number; displayed?: { page: number; total: number } }
+  start: {
+    cfi: string
+    index: number
+    percentage?: number
+    displayed?: { page: number; total: number }
+  }
 }
 
 type Panel = 'none' | 'toc' | 'settings' | 'search' | 'annotations' | 'assistant'
@@ -125,9 +130,9 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       setPercent(pct)
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       saveTimer.current = window.setTimeout(() => {
-        void api.saveProgress(book.id, cfi, pct).then(() =>
-          onProgress({ cfi, percent: pct, updatedAt: new Date().toISOString() })
-        )
+        void api
+          .saveProgress(book.id, cfi, pct)
+          .then(() => onProgress({ cfi, percent: pct, updatedAt: new Date().toISOString() }))
       }, 400)
     },
     [book.id, onProgress]
@@ -140,13 +145,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     return Array.from(frames).find((f) => f.contentDocument === doc)
   }, [])
 
-  const openEditorAt = useCallback(
-    (id: string, clientX: number, clientY: number) => {
-      setSelection(null)
-      setEditing({ id, x: clientX, y: clientY })
-    },
-    []
-  )
+  const openEditorAt = useCallback((id: string, clientX: number, clientY: number) => {
+    setSelection(null)
+    setEditing({ id, x: clientX, y: clientY })
+  }, [])
 
   const addHighlight = useCallback(
     (rendition: Rendition, a: Annotation) => {
@@ -570,7 +572,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     let coveredSection: number | null = null
     if (r) {
       const loc = (await Promise.resolve(r.currentLocation() as unknown)) as Location | null
-      const ctx = chapterContext(r, loc?.start?.cfi ?? lastCfiRef.current, loc?.start?.index ?? null)
+      const ctx = chapterContext(
+        r,
+        loc?.start?.cfi ?? lastCfiRef.current,
+        loc?.start?.index ?? null
+      )
       text = ctx.text
       coveredSection = ctx.complete ? ctx.sectionIndex : null
     }
@@ -579,16 +585,25 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   const chapterForHref = useCallback((href: string) => tocLabelForHref(tocRef.current, href), [])
 
-  const editingAnnotation = editing ? annotations.find((a) => a.id === editing.id) ?? null : null
+  const editingAnnotation = editing ? (annotations.find((a) => a.id === editing.id) ?? null) : null
 
   return (
-    <div className="reader" style={{ background: palette.bg, color: palette.chromeFg }} data-theme={settings.theme}>
+    <div
+      className="reader"
+      style={{ background: palette.bg, color: palette.chromeFg }}
+      data-theme={settings.theme}
+    >
       <TitleBar
         bg={palette.chrome}
         fg={palette.chromeFg}
         border={palette.border}
         left={
-          <button type="button" className="bar-button" onClick={onBack} title={t('reader.backTitle')}>
+          <button
+            type="button"
+            className="bar-button"
+            onClick={onBack}
+            title={t('reader.backTitle')}
+          >
             {t('reader.back')}
           </button>
         }
@@ -605,7 +620,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         }
         right={
           <>
-            <button type="button" className={`bar-button ${panel === 'toc' ? 'active' : ''}`} onClick={() => togglePanel('toc')}>
+            <button
+              type="button"
+              className={`bar-button ${panel === 'toc' ? 'active' : ''}`}
+              onClick={() => togglePanel('toc')}
+            >
               {t('reader.toc')}
             </button>
             <button
@@ -644,13 +663,23 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
       <div className="reader-body">
         {flow === 'paginated' && (
-          <button type="button" className="edge edge-left" onClick={prev} aria-label={t('reader.prev')}>
+          <button
+            type="button"
+            className="edge edge-left"
+            onClick={prev}
+            aria-label={t('reader.prev')}
+          >
             ‹
           </button>
         )}
         <div className="reader-view" ref={containerRef} />
         {flow === 'paginated' && (
-          <button type="button" className="edge edge-right" onClick={next} aria-label={t('reader.next')}>
+          <button
+            type="button"
+            className="edge edge-right"
+            onClick={next}
+            aria-label={t('reader.next')}
+          >
             ›
           </button>
         )}
@@ -674,7 +703,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           />
         )}
         {panel === 'settings' && (
-          <ReaderSettings settings={settings} onChange={onSettings} onClose={() => setPanel('none')} />
+          <ReaderSettings
+            settings={settings}
+            onChange={onSettings}
+            onClose={() => setPanel('none')}
+          />
         )}
         {panel === 'search' && (
           <SearchPanel
@@ -791,7 +824,9 @@ function pageFromCfi(book: EpubBook, cfi: string): number {
 
 function findTocItem(book: EpubBook | null, toc: NavItem[], cfi: string): string | null {
   if (!book || toc.length === 0) return null
-  const spineItem = (book.spine as unknown as { get(target: string): { href: string } | null }).get(cfi)
+  const spineItem = (book.spine as unknown as { get(target: string): { href: string } | null }).get(
+    cfi
+  )
   if (!spineItem) return null
   return tocLabelForHref(toc, spineItem.href)
 }

@@ -17,7 +17,12 @@ export default function SelectionMenu({ x, y, onHighlight, onNote }: Props) {
   const left = Math.max(8, Math.min(x - width / 2, window.innerWidth - width - 8))
   const top = Math.max(48, y - 48)
   return (
-    <div className="selection-menu" style={{ left, top, width }} role="toolbar" onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="selection-menu"
+      style={{ left, top, width }}
+      role="toolbar"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {ORDER.map((c) => (
         <button
           type="button"

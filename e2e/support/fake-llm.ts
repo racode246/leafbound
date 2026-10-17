@@ -27,10 +27,14 @@ export async function startFakeLlm(): Promise<FakeLlm> {
 
   const stream = async (res: import('node:http').ServerResponse, text: string) => {
     res.writeHead(200, { 'content-type': 'text/event-stream' })
-    res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { role: 'assistant' } }] })}\n\n`)
+    res.write(
+      `data: ${JSON.stringify({ choices: [{ index: 0, delta: { role: 'assistant' } }] })}\n\n`
+    )
     for (const piece of text.match(/.{1,5}/gsu) ?? []) {
       await new Promise((r) => setTimeout(r, 10))
-      res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: piece } }] })}\n\n`)
+      res.write(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: piece } }] })}\n\n`
+      )
     }
     res.write('data: [DONE]\n\n')
     res.end()
@@ -45,18 +49,30 @@ export async function startFakeLlm(): Promise<FakeLlm> {
         return
       }
       const body = JSON.parse(raw)
-      const searchPassage = String(body.messages[0]?.content ?? '').startsWith('You help search inside the book')
-      requests.push({ n: requests.length + 1, searchPassage, authorization: req.headers.authorization ?? null, body })
+      const searchPassage = String(body.messages[0]?.content ?? '').startsWith(
+        'You help search inside the book'
+      )
+      requests.push({
+        n: requests.length + 1,
+        searchPassage,
+        authorization: req.headers.authorization ?? null,
+        body
+      })
       const question = body.messages.at(-1).content
       if (searchPassage) {
         if (failHyde) {
-          res.writeHead(500, { 'content-type': 'application/json' }).end('{"error":{"message":"search passage disabled"}}')
+          res
+            .writeHead(500, { 'content-type': 'application/json' })
+            .end('{"error":{"message":"search passage disabled"}}')
           return
         }
         await stream(res, question)
         return
       }
-      await stream(res, `Answer ${requests.length}: about "${question}" the book says this [#1]. Your highlight helped too [H1].`)
+      await stream(
+        res,
+        `Answer ${requests.length}: about "${question}" the book says this [#1]. Your highlight helped too [H1].`
+      )
     })
   })
 

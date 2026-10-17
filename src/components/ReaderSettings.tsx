@@ -37,7 +37,8 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
   const paginated = settings.flow === 'paginated'
 
   const clampSize = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, n))
-  const clampLh = (n: number) => Math.round(Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, n)) * 10) / 10
+  const clampLh = (n: number) =>
+    Math.round(Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, n)) * 10) / 10
 
   return (
     <aside className="panel settings-panel" aria-label={t('settings.title')}>
@@ -200,7 +201,11 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
 
       <section>
         <h3>{t('settings.language')}</h3>
-        <LanguageSelect value={settings.language} onChange={(language) => onChange({ language })} className="wide" />
+        <LanguageSelect
+          value={settings.language}
+          onChange={(language) => onChange({ language })}
+          className="wide"
+        />
       </section>
     </aside>
   )

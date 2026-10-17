@@ -78,7 +78,8 @@ const tauriApi: LeafboundApi = {
   onDragDrop: async (cb) => listenHtml5DragDrop(cb),
 
   // Served by the lbcover:// scheme registered in src-tauri/src/covers_protocol.rs
-  coverUrl: (book) => (book.hasCover ? `${convertFileSrc(book.id, 'lbcover')}?v=${book.coverVersion}` : null),
+  coverUrl: (book) =>
+    book.hasCover ? `${convertFileSrc(book.id, 'lbcover')}?v=${book.coverVersion}` : null,
 
   assistantStatus: (bookId) => invoke<AssistantStatus>('assistant_status', { bookId }),
   assistantPrepare(onEvent) {
