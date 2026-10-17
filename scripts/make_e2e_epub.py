@@ -1,13 +1,23 @@
-"""EPUB with four clearly different chapters, used by the E2E suite (e2e/) to
-check Ask AI retrieval: a question about one chapter should find that chapter.
+"""EPUBs used by the E2E suite (e2e/):
+
+- assistant-test.epub: four clearly different chapters, to check Ask AI retrieval
+  (a question about one chapter should find that chapter).
+- cover-test.epub: a cover image and the kinds of publisher resources epub.js turns
+  into blob:/data: URLs or inline styles (stylesheet, CSS background, <style>,
+  style attributes, images), for the Content Security Policy check.
 
 Run: python scripts/make_e2e_epub.py
-Writes: e2e/fixtures/assistant-test.epub (deterministic: fixed zip timestamps)
+Writes both into e2e/fixtures/ (deterministic: fixed zip timestamps)
 """
+import base64
+import struct
 import zipfile
+import zlib
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "e2e" / "fixtures" / "assistant-test.epub"
+FIXTURES = Path(__file__).resolve().parent.parent / "e2e" / "fixtures"
+OUT = FIXTURES / "assistant-test.epub"
+COVER_OUT = FIXTURES / "cover-test.epub"
 STAMP = (2026, 10, 18, 0, 0, 0)
 
 CHAPTERS = [
@@ -103,5 +113,111 @@ def main(out: Path = OUT) -> None:
     print(f"wrote {out}")
 
 
+def png(width: int, height: int, pixel) -> bytes:
+    """Uncompressed-filter RGB PNG; pixel(x, y) returns (r, g, b)."""
+    rows = bytearray()
+    for y in range(height):
+        rows.append(0)
+        for x in range(width):
+            rows.extend(pixel(x, y))
+
+    def chunk(tag: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(bytes(rows), 9))
+        + chunk(b"IEND", b"")
+    )
+
+
+COVER_CHAPTERS = [
+    ("Chapter 1 The Lamplighter", "Every evening the lamplighter walks Lantern Street with a long brass pole."),
+    ("Chapter 2 The Harbour", "Fishing boats come back to the harbour when the lighthouse starts to turn."),
+    ("Chapter 3 The Bakery", "The bakery on the corner sells rye bread with caraway seeds before dawn."),
+]
+
+
+def cover_chapter(title: str, sentence: str, dot: str) -> str:
+    # One of each way a publisher styles a page: linked stylesheet (with url() images
+    # epub.js rewrites to blob: URLs), a <style> element, style attributes, a data: image.
+    paras = "\n".join(f"<p>{sentence} ({i + 1})</p>" for i in range(12))
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head>'
+        f'<title>{title}</title><link rel="stylesheet" type="text/css" href="style.css"/>'
+        "<style>p.lead { font-variant: small-caps; }</style></head>"
+        f'<body><h1 class="ornament">{title}</h1>\n'
+        f'<p class="lead" style="text-indent: 0; margin-top: 1em">{sentence}</p>\n'
+        f'<p><img class="dot" src="data:image/png;base64,{dot}" alt=""/></p>\n'
+        f"{paras}\n</body></html>\n"
+    )
+
+
+def cover_book(out: Path = COVER_OUT) -> None:
+    cover = png(400, 600, lambda x, y: (0x2F, 0x5D, 0x50) if y < 420 else (0xFD, 0xFB, 0xF7))
+    ornament = png(16, 16, lambda x, y: (0xB7, 0xD8, 0xC3) if (x + y) % 4 < 2 else (0x2F, 0x5D, 0x50))
+    dot = base64.b64encode(png(8, 8, lambda x, y: (0xD9, 0xB8, 0x7A))).decode()
+    css = (
+        "body { margin: 0 4%; }\n"
+        ".ornament { padding-left: 20px; background: url(ornament.png) no-repeat left center; }\n"
+        f".lead {{ background-image: url(data:image/png;base64,{dot}); }}\n"
+    )
+    n = len(COVER_CHAPTERS)
+    manifest = "\n".join(
+        f'<item id="c{i}" href="c{i}.xhtml" media-type="application/xhtml+xml"/>' for i in range(n)
+    )
+    spine = "".join(f'<itemref idref="c{i}"/>' for i in range(n))
+    nav_items = "\n".join(f'<li><a href="c{i}.xhtml">{t}</a></li>' for i, (t, _) in enumerate(COVER_CHAPTERS))
+    opf = f"""<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-cover-test</dc:identifier>
+    <dc:title>Lantern Street</dc:title>
+    <dc:creator>Test Author</dc:creator>
+    <dc:language>en</dc:language>
+    <meta property="dcterms:modified">2026-10-18T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="cover-image" href="cover.png" media-type="image/png" properties="cover-image"/>
+    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>
+    <item id="css" href="style.css" media-type="text/css"/>
+    <item id="ornament" href="ornament.png" media-type="image/png"/>
+    {manifest}
+  </manifest>
+  <spine><itemref idref="cover"/>{spine}</spine>
+</package>
+"""
+    nav = f"""<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Contents</title></head><body><nav epub:type="toc"><ol>{nav_items}</ol></nav></body></html>
+"""
+    cover_page = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Cover</title></head>'
+        '<body><img src="cover.png" alt="Lantern Street"/></body></html>\n'
+    )
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/nav.xhtml"), nav)
+        z.writestr(entry("OEBPS/cover.png"), cover)
+        z.writestr(entry("OEBPS/cover.xhtml"), cover_page)
+        z.writestr(entry("OEBPS/style.css"), css)
+        z.writestr(entry("OEBPS/ornament.png"), ornament)
+        for i, (title, sentence) in enumerate(COVER_CHAPTERS):
+            z.writestr(entry(f"OEBPS/c{i}.xhtml"), cover_chapter(title, sentence, dot))
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
+    cover_book()
