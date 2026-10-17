@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# Rust: the stable toolchain that comes with the runner image, not updated in each job
+# (that took 20-27 s per job). It can lag the latest stable by about a week, one image
+# cycle; release.yml installs the latest. These two were set by dtolnay/rust-toolchain.
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -48,9 +55,16 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          components: clippy, rustfmt
+      # The runner image's stable Rust, used as is (see the env above).
+      - name: Rust toolchain
+        run: |
+          $installed = rustup component list --installed
+          foreach ($c in 'clippy', 'rustfmt') {
+            if (-not ($installed -match "^$c-")) { rustup component add $c }
+          }
+          rustc -vV
+          cargo clippy -V
+          cargo fmt --version
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -121,7 +135,8 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - name: Rust toolchain
+        run: rustc -vV
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
