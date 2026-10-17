@@ -11,9 +11,30 @@ export interface Palette {
 }
 
 export const PALETTES: Record<ThemeName, Palette> = {
-  light: { bg: '#fdfbf7', fg: '#1f1d1a', link: '#2f5d50', chrome: '#f3eee4', chromeFg: '#2a2622', border: '#e2dacb' },
-  sepia: { bg: '#f1e6cf', fg: '#3a2f22', link: '#5a4a1e', chrome: '#e7d9bb', chromeFg: '#3a2f22', border: '#d2c2a0' },
-  dark: { bg: '#161616', fg: '#d8d4cc', link: '#9fc5b5', chrome: '#222222', chromeFg: '#d8d4cc', border: '#333333' }
+  light: {
+    bg: '#fdfbf7',
+    fg: '#1f1d1a',
+    link: '#2f5d50',
+    chrome: '#f3eee4',
+    chromeFg: '#2a2622',
+    border: '#e2dacb'
+  },
+  sepia: {
+    bg: '#f1e6cf',
+    fg: '#3a2f22',
+    link: '#5a4a1e',
+    chrome: '#e7d9bb',
+    chromeFg: '#3a2f22',
+    border: '#d2c2a0'
+  },
+  dark: {
+    bg: '#161616',
+    fg: '#d8d4cc',
+    link: '#9fc5b5',
+    chrome: '#222222',
+    chromeFg: '#d8d4cc',
+    border: '#333333'
+  }
 }
 
 const THEME_NAME = 'leafbound'

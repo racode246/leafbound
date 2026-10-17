@@ -7,7 +7,15 @@ interface Props {
   onClose: () => void
 }
 
-function Items({ items, depth, onNavigate }: { items: NavItem[]; depth: number; onNavigate: (href: string) => void }) {
+function Items({
+  items,
+  depth,
+  onNavigate
+}: {
+  items: NavItem[]
+  depth: number
+  onNavigate: (href: string) => void
+}) {
   return (
     <ul className="toc-list">
       {items.map((item) => (

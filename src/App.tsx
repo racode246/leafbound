@@ -86,7 +86,9 @@ function Shell({ library, setLibrary }: ShellProps) {
         const item = queueRef.current.shift() as ImportItem
         try {
           const outcome =
-            item.kind === 'path' ? await api.importPaths([item.path]) : await api.importFiles([item.file])
+            item.kind === 'path'
+              ? await api.importPaths([item.path])
+              : await api.importFiles([item.file])
           recordOutcome(outcome)
         } catch (err) {
           setError(String(err))
@@ -114,14 +116,22 @@ function Shell({ library, setLibrary }: ShellProps) {
 
   const importPaths = useCallback(
     (paths: string[]) => {
-      enqueue(paths.filter((p) => p.toLowerCase().endsWith('.epub')).map((path) => ({ kind: 'path', path })))
+      enqueue(
+        paths
+          .filter((p) => p.toLowerCase().endsWith('.epub'))
+          .map((path) => ({ kind: 'path', path }))
+      )
     },
     [enqueue]
   )
 
   const importFiles = useCallback(
     (files: File[]) => {
-      enqueue(files.filter((f) => f.name.toLowerCase().endsWith('.epub')).map((file) => ({ kind: 'file', file })))
+      enqueue(
+        files
+          .filter((f) => f.name.toLowerCase().endsWith('.epub'))
+          .map((file) => ({ kind: 'file', file }))
+      )
     },
     [enqueue]
   )
@@ -203,7 +213,9 @@ function Shell({ library, setLibrary }: ShellProps) {
   )
 
   if (!library) {
-    return <div className="boot">{error ? <p className="error">{error}</p> : t('boot.loading')}</div>
+    return (
+      <div className="boot">{error ? <p className="error">{error}</p> : t('boot.loading')}</div>
+    )
   }
 
   const noticeLines: string[] = []

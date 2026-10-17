@@ -31,15 +31,21 @@ async function ask(app: App, ai: Assistant, question: string): Promise<LlmReques
 
 const system = (r: LlmRequest) => r.body.messages[0].content
 
-test('builds the prompt from the chapter, passages, highlights and the conversation window', async ({ app }) => {
+test('builds the prompt from the chapter, passages, highlights and the conversation window', async ({
+  app
+}) => {
   const { reader, ai } = await openAssistant(app)
   await reader.openChapter('第三章 カレーの作り方')
   await reader.highlightWithNote('隠し味', 'カレーの秘密の材料')
 
   await ai.open()
   await ai.waitUntilReady()
-  const book = (await app.invoke<{ books: { id: string; title: string }[] }>('get_library')).books.find((b) => b.title === BOOK)!
-  const status = await app.invoke<{ indexedSections: number[] }>('assistant_status', { bookId: book.id })
+  const book = (
+    await app.invoke<{ books: { id: string; title: string }[] }>('get_library')
+  ).books.find((b) => b.title === BOOK)!
+  const status = await app.invoke<{ indexedSections: number[] }>('assistant_status', {
+    bookId: book.id
+  })
   expect(status.indexedSections).toHaveLength(4)
 
   // Q1 on chapter 3: the chapter itself, the highlight and its note.
@@ -47,7 +53,9 @@ test('builds the prompt from the chapter, passages, highlights and the conversat
   expect(r.body.messages).toHaveLength(2)
   expect(system(r)).toMatch(/<current_chapter>[\s\S]*りんご/)
   expect(system(r)).toMatch(/<highlights>[\s\S]*隠し味[\s\S]*カレーの秘密の材料/)
-  expect(system(r), 'the chapter sent in full is not repeated as passages').not.toMatch(/\(chapter: 第三章/)
+  expect(system(r), 'the chapter sent in full is not repeated as passages').not.toMatch(
+    /\(chapter: 第三章/
+  )
   expect(r.authorization).toBeNull()
 
   // Q2 follows up within the window.
@@ -63,7 +71,13 @@ test('builds the prompt from the chapter, passages, highlights and the conversat
   expect(system(r)).toMatch(/<current_chapter>[\s\S]*三毛猫/)
 
   // The window keeps 5 exchanges; older ones come back as earlier conversations.
-  for (const q of ['ミケの好物は？', '佐伯さんの昔の仕事は？', '千夏は何を焦がした？', '詩集は誰からもらった？']) await ask(app, ai, q)
+  for (const q of [
+    'ミケの好物は？',
+    '佐伯さんの昔の仕事は？',
+    '千夏は何を焦がした？',
+    '詩集は誰からもらった？'
+  ])
+    await ask(app, ai, q)
   r = await ask(app, ai, 'カレーの隠し味をもう一度教えて')
   expect(r.body.messages).toHaveLength(12)
   expect(r.body.messages[1].content).toBe('灯台の光は何秒ごとに回る？')
@@ -77,12 +91,17 @@ test('builds the prompt from the chapter, passages, highlights and the conversat
   await expect(reader.chapter).toContainText('第四章')
 })
 
-test('stores the API key outside the webview, starts a new chat and keeps history', async ({ app }) => {
+test('stores the API key outside the webview, starts a new chat and keeps history', async ({
+  app
+}) => {
   const { ai } = await openAssistant(app)
   await ai.open()
   await ai.waitUntilReady()
 
-  const keys = await app.invoke<Record<string, boolean>>('assistant_set_api_key', { provider: 'openai', key: 'sk-leafbound-e2e' })
+  const keys = await app.invoke<Record<string, boolean>>('assistant_set_api_key', {
+    provider: 'openai',
+    key: 'sk-leafbound-e2e'
+  })
   expect(keys.openai).toBe(true)
   expect(JSON.stringify(keys)).not.toContain('sk-')
 
@@ -93,11 +112,17 @@ test('stores the API key outside the webview, starts a new chat and keeps histor
   expect(r.body.messages, 'a new chat sends no window').toHaveLength(2)
   expect(r.authorization).toBe('Bearer sk-leafbound-e2e')
 
-  const book = (await app.invoke<{ books: { id: string; title: string }[] }>('get_library')).books.find((b) => b.title === BOOK)!
-  const history = await app.invoke<{ exchanges: { question: string }[] }>('assistant_history', { bookId: book.id })
+  const book = (
+    await app.invoke<{ books: { id: string; title: string }[] }>('get_library')
+  ).books.find((b) => b.title === BOOK)!
+  const history = await app.invoke<{ exchanges: { question: string }[] }>('assistant_history', {
+    bookId: book.id
+  })
   expect(history.exchanges.map((e) => e.question)).toEqual(['千夏はミケを何と呼ぶ？'])
 
-  const deleted = await app.invoke<Record<string, boolean>>('assistant_delete_api_key', { provider: 'openai' })
+  const deleted = await app.invoke<Record<string, boolean>>('assistant_delete_api_key', {
+    provider: 'openai'
+  })
   expect(deleted.openai).toBe(false)
 })
 

@@ -14,7 +14,9 @@ interface Props {
 
 /** Accepts full-width digits too, since the IME is often on while reading Japanese. */
 function parsePage(text: string): number | null {
-  const ascii = text.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/\D/g, '')
+  const ascii = text
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/\D/g, '')
   const n = parseInt(ascii, 10)
   return Number.isFinite(n) ? n : null
 }
@@ -45,7 +47,10 @@ export default function PageNav({ percent, page, totalPages, chapterAt, onJump, 
 
   return (
     <>
-      <div className={`seek ${drag !== null ? 'dragging' : ''}`} style={{ '--fill': fill } as CSSProperties}>
+      <div
+        className={`seek ${drag !== null ? 'dragging' : ''}`}
+        style={{ '--fill': fill } as CSSProperties}
+      >
         <input
           type="range"
           min={1}

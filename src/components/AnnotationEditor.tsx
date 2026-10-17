@@ -15,7 +15,15 @@ interface Props {
 const ORDER: HighlightColor[] = ['yellow', 'green', 'blue', 'pink']
 
 /** Popover for editing one highlight: colour, note, delete. */
-export default function AnnotationEditor({ annotation, x, y, onColor, onNote, onDelete, onClose }: Props) {
+export default function AnnotationEditor({
+  annotation,
+  x,
+  y,
+  onColor,
+  onNote,
+  onDelete,
+  onClose
+}: Props) {
   const t = useT()
   const [note, setNote] = useState(annotation.note)
   useEffect(() => setNote(annotation.note), [annotation.id, annotation.note])
@@ -65,7 +73,12 @@ export default function AnnotationEditor({ annotation, x, y, onColor, onNote, on
         <button type="button" className="danger" onClick={onDelete}>
           {t('hl.delete')}
         </button>
-        <button type="button" className="primary" onClick={() => onNote(note)} disabled={note === annotation.note}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => onNote(note)}
+          disabled={note === annotation.note}
+        >
           {t('hl.save')}
         </button>
       </div>

@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { CHUNK_OVERLAP, CHUNK_SIZE, chunkRanges } from './chunk'
 
 const ja = (n: number) =>
-  Array.from({ length: n }, (_, i) => `ミケは三毛猫で、古本屋の店先で暮らしている（${i}）。`).join('')
-const en = (n: number) => Array.from({ length: n }, (_, i) => `The lamp turns every fifteen seconds (${i}). `).join('')
+  Array.from({ length: n }, (_, i) => `ミケは三毛猫で、古本屋の店先で暮らしている（${i}）。`).join(
+    ''
+  )
+const en = (n: number) =>
+  Array.from({ length: n }, (_, i) => `The lamp turns every fifteen seconds (${i}). `).join('')
 
 describe('chunkRanges', () => {
   it('returns one chunk for short text', () => {
@@ -21,12 +24,14 @@ describe('chunkRanges', () => {
       it('covers the whole text without gaps', () => {
         expect(ranges[0][0]).toBe(0)
         expect(ranges.at(-1)![1]).toBe(text.length)
-        for (let i = 1; i < ranges.length; i++) expect(ranges[i][0]).toBeLessThanOrEqual(ranges[i - 1][1])
+        for (let i = 1; i < ranges.length; i++)
+          expect(ranges[i][0]).toBeLessThanOrEqual(ranges[i - 1][1])
       })
 
       it('keeps chunks within the size and overlapping by at most the overlap', () => {
         for (const [start, end] of ranges) expect(end - start).toBeLessThanOrEqual(CHUNK_SIZE)
-        for (let i = 1; i < ranges.length; i++) expect(ranges[i - 1][1] - ranges[i][0]).toBeLessThanOrEqual(CHUNK_OVERLAP)
+        for (let i = 1; i < ranges.length; i++)
+          expect(ranges[i - 1][1] - ranges[i][0]).toBeLessThanOrEqual(CHUNK_OVERLAP)
       })
 
       it('ends chunks at sentence ends and starts them at sentence starts', () => {

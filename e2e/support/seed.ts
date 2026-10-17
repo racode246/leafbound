@@ -16,7 +16,10 @@ const hasModel = (dir: string | undefined): dir is string =>
 
 /** Where to take the model from: the CI cache, or the developer's installed app. */
 export function modelSource(): string | null {
-  const candidates = [process.env.E2E_MODEL_DIR, join(process.env.APPDATA ?? '', 'dev.leafbound.app', 'models', MODEL_DIR_NAME)]
+  const candidates = [
+    process.env.E2E_MODEL_DIR,
+    join(process.env.APPDATA ?? '', 'dev.leafbound.app', 'models', MODEL_DIR_NAME)
+  ]
   return candidates.find(hasModel) ?? null
 }
 
@@ -49,7 +52,10 @@ export function seed({ language, llmUrl, model }: Seed): void {
     language,
     assistant: { provider: 'openai', model: 'fake-model', baseUrl: llmUrl }
   }
-  writeFileSync(join(appData, 'library.json'), JSON.stringify({ version: 1, books: [], categories: [], settings }))
+  writeFileSync(
+    join(appData, 'library.json'),
+    JSON.stringify({ version: 1, books: [], categories: [], settings })
+  )
   if (model) {
     const source = modelSource()
     if (source) cpSync(source, join(appData, 'models', MODEL_DIR_NAME), { recursive: true })
@@ -60,5 +66,6 @@ export function seed({ language, llmUrl, model }: Seed): void {
 export function keepDownloadedModel(): void {
   const cache = process.env.E2E_MODEL_DIR
   const downloaded = join(appData, 'models', MODEL_DIR_NAME)
-  if (cache && hasModel(downloaded) && !hasModel(cache)) cpSync(downloaded, cache, { recursive: true })
+  if (cache && hasModel(downloaded) && !hasModel(cache))
+    cpSync(downloaded, cache, { recursive: true })
 }

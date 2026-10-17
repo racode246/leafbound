@@ -111,7 +111,14 @@ export const mockApi: LeafboundApi = {
       }
       const id = crypto.randomUUID()
       files.set(id, () => file.arrayBuffer())
-      const book: Book = { ...sample, id, title: file.name.replace(/\.epub$/i, ''), author: '', fileName: file.name, addedAt: now() }
+      const book: Book = {
+        ...sample,
+        id,
+        title: file.name.replace(/\.epub$/i, ''),
+        author: '',
+        fileName: file.name,
+        addedAt: now()
+      }
       state.books.push(book)
       added.push(clone(book))
     }
@@ -149,7 +156,8 @@ export const mockApi: LeafboundApi = {
     const idx = state.categories.indexOf(from)
     if (idx >= 0 && to.trim() && !state.categories.includes(to.trim())) {
       state.categories[idx] = to.trim()
-      for (const b of state.books) b.categories = b.categories.map((c) => (c === from ? to.trim() : c))
+      for (const b of state.books)
+        b.categories = b.categories.map((c) => (c === from ? to.trim() : c))
     }
     return clone(state)
   },

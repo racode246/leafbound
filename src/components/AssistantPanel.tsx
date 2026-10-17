@@ -14,7 +14,10 @@ import {
 } from '../types'
 import AssistantSettingsView from './AssistantSettings'
 
-export type AskContext = Pick<AskRequest, 'chapterTitle' | 'chapterText' | 'coveredSection' | 'percent'>
+export type AskContext = Pick<
+  AskRequest,
+  'chapterTitle' | 'chapterText' | 'coveredSection' | 'percent'
+>
 
 interface Props {
   book: Book
@@ -120,7 +123,8 @@ export default function AssistantPanel({
     preparing.current = true
     try {
       await api.assistantPrepare((event) => {
-        if (event.type === 'download') setPhase({ kind: 'downloading', done: event.done, total: event.total })
+        if (event.type === 'download')
+          setPhase({ kind: 'downloading', done: event.done, total: event.total })
         else setPhase({ kind: 'loading' })
       })
       setPhase({ kind: 'ready' })
@@ -149,7 +153,8 @@ export default function AssistantPanel({
           raw,
           new Set(indexed),
           chapterFor,
-          (section, href, chapter, chunks) => api.assistantIndexSection(book.id, section, href, chapter, chunks),
+          (section, href, chapter, chunks) =>
+            api.assistantIndexSection(book.id, section, href, chapter, chunks),
           control,
           (p) => !control.cancelled && setIndexProgress(p)
         )
@@ -182,14 +187,17 @@ export default function AssistantPanel({
     setPending({ requestId, question, answer: '', stage: null, sources: [] })
     try {
       const context = await getContext()
-      const exchange = await api.ask({ requestId, bookId: book.id, sessionId, question, ...context }, (event) => {
-        setPending((p) => {
-          if (!p || p.requestId !== requestId) return p
-          if (event.type === 'stage') return { ...p, stage: event.stage }
-          if (event.type === 'sources') return { ...p, sources: event.sources }
-          return { ...p, answer: p.answer + event.text }
-        })
-      })
+      const exchange = await api.ask(
+        { requestId, bookId: book.id, sessionId, question, ...context },
+        (event) => {
+          setPending((p) => {
+            if (!p || p.requestId !== requestId) return p
+            if (event.type === 'stage') return { ...p, stage: event.stage }
+            if (event.type === 'sources') return { ...p, sources: event.sources }
+            return { ...p, answer: p.answer + event.text }
+          })
+        }
+      )
       setExchanges((list) => [...list, exchange])
     } catch (err) {
       if (String(err) !== 'CANCELLED') setError(errorText(t, err))
@@ -269,7 +277,9 @@ export default function AssistantPanel({
       case 'downloading':
         return (
           <div className="ai-progress">
-            <span>{t('ai.download.progress', { done: mb(phase.done), total: mb(phase.total) })}</span>
+            <span>
+              {t('ai.download.progress', { done: mb(phase.done), total: mb(phase.total) })}
+            </span>
             <progress max={phase.total} value={phase.done} />
           </div>
         )
@@ -286,11 +296,14 @@ export default function AssistantPanel({
           </div>
         )
       case 'ready':
-        if (indexError) return <p className="ai-error small">{t('ai.index.failed', { message: indexError })}</p>
+        if (indexError)
+          return <p className="ai-error small">{t('ai.index.failed', { message: indexError })}</p>
         if (indexProgress && indexProgress.done < indexProgress.total) {
           return (
             <div className="ai-progress">
-              <span>{t('ai.index.progress', { done: indexProgress.done, total: indexProgress.total })}</span>
+              <span>
+                {t('ai.index.progress', { done: indexProgress.done, total: indexProgress.total })}
+              </span>
               <progress max={indexProgress.total} value={indexProgress.done} />
             </div>
           )
@@ -300,7 +313,11 @@ export default function AssistantPanel({
   }
 
   const stageText = (stage: AskStage | null) =>
-    stage === 'highlights' ? t('ai.stage.highlights') : stage === 'generating' ? t('ai.stage.generating') : t('ai.stage.searching')
+    stage === 'highlights'
+      ? t('ai.stage.highlights')
+      : stage === 'generating'
+        ? t('ai.stage.generating')
+        : t('ai.stage.searching')
 
   return (
     <aside className="panel assistant-panel" aria-label={t('ai.title')} hidden={hidden}>
@@ -308,7 +325,12 @@ export default function AssistantPanel({
         <span>{view === 'chat' ? t('ai.title') : t('ai.settings.title')}</span>
         <div className="assistant-head-actions">
           {view === 'chat' && (
-            <button type="button" onClick={newConversation} disabled={!!pending} title={t('ai.newConversation')}>
+            <button
+              type="button"
+              onClick={newConversation}
+              disabled={!!pending}
+              title={t('ai.newConversation')}
+            >
               {t('ai.new')}
             </button>
           )}

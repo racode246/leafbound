@@ -34,7 +34,12 @@ export default defineConfig({
       }
     },
     { name: 'app-build', testDir: './tests/app', testMatch: /build\.setup\.ts/ },
-    { name: 'app', testDir: './tests/app', testIgnore: /build\.setup\.ts/, dependencies: ['app-build'] },
+    {
+      name: 'app',
+      testDir: './tests/app',
+      testIgnore: /build\.setup\.ts/,
+      dependencies: ['app-build']
+    },
     { name: 'live', testDir: './tests/live', dependencies: ['app-build'] }
   ],
   webServer: {

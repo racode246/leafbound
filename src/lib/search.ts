@@ -44,7 +44,12 @@ export async function searchBook(
     try {
       await item.load(book.load.bind(book))
       for (const found of item.find(q)) {
-        hits.push({ cfi: found.cfi, excerpt: found.excerpt, sectionIndex: item.index, href: item.href })
+        hits.push({
+          cfi: found.cfi,
+          excerpt: found.excerpt,
+          sectionIndex: item.index,
+          href: item.href
+        })
         if (hits.length >= MAX_HITS) {
           truncated = true
           break

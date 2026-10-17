@@ -13,6 +13,7 @@ describe('i18n dictionaries', () => {
   })
 
   it('use the same placeholders in both languages', () => {
-    for (const key of keys) expect(placeholders(DICTS.en[key]), key).toEqual(placeholders(DICTS.ja[key]))
+    for (const key of keys)
+      expect(placeholders(DICTS.en[key]), key).toEqual(placeholders(DICTS.ja[key]))
   })
 })
