@@ -14,5 +14,6 @@ Thumbs.db
 # private Claude Code workspace (notes, skills)
 .claude/
 
-# E2E screenshots
-e2e/.out/
+# E2E output (Playwright)
+e2e/results/
+e2e/report/

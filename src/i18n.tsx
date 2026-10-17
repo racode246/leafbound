@@ -361,7 +361,7 @@ const en: Record<Key, string> = {
   'win.close': 'Close'
 }
 
-const DICTS: Record<Lang, Record<Key, string>> = { ja, en }
+export const DICTS: Record<Lang, Record<Key, string>> = { ja, en }
 
 export function systemLang(): Lang {
   const tag = typeof navigator !== 'undefined' ? navigator.language : ''
