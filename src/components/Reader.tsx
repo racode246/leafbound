@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import ePub, { type Book as EpubBook, type Contents, type NavItem, type Rendition } from 'epubjs'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
@@ -21,6 +21,7 @@ import SearchPanel from './SearchPanel'
 import AnnotationsPanel from './AnnotationsPanel'
 import SelectionMenu from './SelectionMenu'
 import AnnotationEditor from './AnnotationEditor'
+import PageNav from './PageNav'
 
 interface Props {
   book: Book
@@ -84,6 +85,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const [errorText, setErrorText] = useState('')
   const [percent, setPercent] = useState(book.progress?.percent ?? 0)
   const [chapter, setChapter] = useState('')
+
+  // Pages are epub.js locations (fixed-size text chunks), so they don't shift with font size.
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  // A screen page usually starts a little before the chunk we jumped to, which would read as
+  // "page N-1". Keep showing the requested page until the reader moves away from where it landed.
+  const jumpRef = useRef<{ page: number; cfi: string | null } | null>(null)
+  const pageInputRef = useRef<HTMLInputElement>(null)
 
   // Annotations
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -253,6 +262,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     let epubBook: EpubBook | null = null
 
     setStatus('loading')
+    setTotalPages(0)
+    jumpRef.current = null
     setSelection(null)
     setEditing(null)
     searchHitRef.current = null
@@ -284,6 +295,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           let pct: number
           if (epubBook.locations.length() > 0) {
             pct = epubBook.locations.percentageFromCfi(cfi)
+            const jump = jumpRef.current
+            if (jump && (jump.cfi === null || jump.cfi === cfi)) {
+              jump.cfi = cfi
+              setPage(jump.page)
+            } else {
+              jumpRef.current = null
+              setPage(pageFromCfi(epubBook, cfi))
+            }
           } else if (typeof loc.start.percentage === 'number' && loc.start.percentage > 0) {
             pct = loc.start.percentage
           } else {
@@ -354,9 +373,12 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
         await epubBook.ready
         await epubBook.locations.generate(1200)
-        if (!disposed && lastCfiRef.current) {
+        if (disposed) return
+        setTotalPages(epubBook.locations.length())
+        if (lastCfiRef.current) {
           const pct = epubBook.locations.percentageFromCfi(lastCfiRef.current)
           if (Number.isFinite(pct)) setPercent(pct)
+          setPage(pageFromCfi(epubBook, lastCfiRef.current))
         }
       } catch (err) {
         console.error(err)
@@ -401,6 +423,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setPanel('search')
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        pageInputRef.current?.focus()
         return
       }
       switch (e.key) {
@@ -459,6 +486,24 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     } catch (err) {
       console.error('navigation failed', target, err)
     }
+  }
+
+  const goToPage = async (target: number) => {
+    const b = bookRef.current
+    if (!b) return
+    const cfi = b.locations.cfiFromLocation(target - 1) as unknown
+    if (typeof cfi !== 'string') return
+    jumpRef.current = { page: target, cfi: null }
+    setPage(target)
+    await goTo(cfi)
+    // Navigation failed or never reported a location: don't pin the next one.
+    if (jumpRef.current?.cfi === null) jumpRef.current = null
+  }
+
+  const chapterAtPage = (target: number): string | null => {
+    const b = bookRef.current
+    const cfi = b?.locations.cfiFromLocation(target - 1) as unknown
+    return typeof cfi === 'string' ? findTocItem(b ?? null, tocRef.current, cfi) : null
   }
 
   const runSearch = (q: string) => {
@@ -653,10 +698,27 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         )}
       </div>
 
-      <footer className="reader-foot" style={{ background: palette.chrome, borderColor: palette.border }}>
-        <span className="bar">
-          <span style={{ width: `${Math.round(percent * 100)}%` }} />
-        </span>
+      <footer
+        className="reader-foot"
+        style={
+          {
+            background: palette.chrome,
+            borderColor: palette.border,
+            '--seek-fill': palette.link,
+            '--seek-track': palette.border,
+            '--tip-bg': palette.chromeFg,
+            '--tip-fg': palette.chrome
+          } as CSSProperties
+        }
+      >
+        <PageNav
+          percent={percent}
+          page={page}
+          totalPages={totalPages}
+          chapterAt={chapterAtPage}
+          onJump={(p) => void goToPage(p)}
+          inputRef={pageInputRef}
+        />
         <span className="pct">{Math.round(percent * 100)}%</span>
       </footer>
     </div>
@@ -676,6 +738,13 @@ function tocLabelForHref(toc: NavItem[], href: string): string | null {
     return null
   }
   return walk(toc)
+}
+
+/** 1-based page whose chunk contains the CFI (locationFromCfi returns the insertion index). */
+function pageFromCfi(book: EpubBook, cfi: string): number {
+  const total = book.locations.length()
+  const loc = book.locations.locationFromCfi(cfi) as unknown as number
+  return Math.min(total, Math.max(1, loc))
 }
 
 function findTocItem(book: EpubBook | null, toc: NavItem[], cfi: string): string | null {

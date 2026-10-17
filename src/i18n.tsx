@@ -61,6 +61,10 @@ const ja = {
   'reader.next': '次のページ',
   'reader.loading': '読み込み中…',
   'reader.openFailed': 'この本を開けませんでした。',
+  'reader.seek': '読書位置',
+  'reader.pageOf': '{page} / {total}',
+  'reader.pageJumpTitle': 'ページ番号を入力して Enter で移動 (Ctrl+G)',
+  'reader.pagesPending': 'ページ数を計算中…',
   'toc.title': '目次',
   'toc.empty': '目次がありません。',
 
@@ -183,6 +187,10 @@ const en: Record<Key, string> = {
   'reader.next': 'Next page',
   'reader.loading': 'Loading…',
   'reader.openFailed': 'Could not open this book.',
+  'reader.seek': 'Reading position',
+  'reader.pageOf': '{page} / {total}',
+  'reader.pageJumpTitle': 'Type a page number and press Enter (Ctrl+G)',
+  'reader.pagesPending': 'Counting pages…',
   'toc.title': 'Table of contents',
   'toc.empty': 'No table of contents.',
 
