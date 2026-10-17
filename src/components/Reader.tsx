@@ -41,7 +41,7 @@ import AnnotationEditor from './AnnotationEditor'
 import PageNav from './PageNav'
 import Icon from './Icon'
 import BarButton from './BarButton'
-import AssistantPanel, { type AskContext } from './AssistantPanel'
+import AssistantPanel, { type AskContext, type QuoteRequest } from './AssistantPanel'
 import { chapterContext } from '../lib/bookText'
 
 interface Props {
@@ -128,6 +128,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const [panel, setPanel] = useState<Panel>('none')
   // The assistant panel stays mounted once opened so a running answer or indexing survives switching panels.
   const [assistantMounted, setAssistantMounted] = useState(false)
+  // The last selection sent to the assistant with "Ask AI" in the selection menu.
+  const [quote, setQuote] = useState<QuoteRequest | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorText, setErrorText] = useState('')
   const [percent, setPercent] = useState(book.progress?.percent ?? 0)
@@ -604,6 +606,17 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     setPanel((cur) => (cur === p ? 'none' : p))
   }
 
+  /** Opens the assistant (never closes it) with the selection quoted in the input. */
+  const askAboutSelection = () => {
+    const r = renditionRef.current
+    if (!selection) return
+    setQuote((q) => ({ id: (q?.id ?? 0) + 1, text: selection.text }))
+    if (r) clearSelection(r)
+    setSelection(null)
+    setAssistantMounted(true)
+    setPanel('assistant')
+  }
+
   const getAskContext = useCallback(async (): Promise<AskContext> => {
     const r = renditionRef.current
     let text = ''
@@ -790,6 +803,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             book={book}
             settings={settings}
             hidden={panel !== 'assistant'}
+            quote={quote}
             onSettings={onSettings}
             getContext={getAskContext}
             chapterFor={chapterForHref}
@@ -804,6 +818,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             y={selection.y}
             onHighlight={(color) => createAnnotation(color, false)}
             onNote={() => createAnnotation('yellow', true)}
+            onAsk={askAboutSelection}
           />
         )}
         {editing && editingAnnotation && (

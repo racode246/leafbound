@@ -1360,11 +1360,15 @@ input:not([type]) {
 }
 
 .selection-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: none;
   background: transparent;
   color: inherit;
   padding: 2px 8px;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .selection-note:hover {

@@ -47,6 +47,13 @@ export class Reader {
     return panel
   }
 
+  /** Switches the reading direction in the Display panel and waits for the new rendition. */
+  async setFlow(name: 'Paged (horizontal)' | 'Scroll (vertical)'): Promise<void> {
+    const panel = await this.display()
+    await panel.getByRole('button', { name, exact: true }).click()
+    await this.waitUntilShown()
+  }
+
   /** Picks a font in the Display panel by the option's label. */
   async setFont(label: string): Promise<void> {
     const panel = await this.display()
@@ -150,13 +157,24 @@ export class Reader {
         sel.addRange(range)
         doc.dispatchEvent(new Event('selectionchange'))
       })
-    await expect(this.page.getByRole('toolbar')).toBeVisible()
+    await expect(this.selectionMenu).toBeVisible()
+  }
+
+  /** The bubble over a text selection (highlight colours, Note, Ask AI). */
+  get selectionMenu(): Locator {
+    return this.page.getByRole('toolbar')
+  }
+
+  /** "Ask AI" in the selection menu: opens the Ask AI panel with the selection quoted. */
+  async askAboutSelection(): Promise<void> {
+    await this.selectionMenu.getByRole('button', { name: 'Ask AI', exact: true }).click()
+    await expect(this.selectionMenu).toBeHidden()
   }
 
   /** Highlights a paragraph through the selection menu and adds a note. */
   async highlightWithNote(startsWith: string, note: string): Promise<void> {
     await this.selectParagraph(startsWith)
-    await this.page.getByRole('toolbar').getByRole('button', { name: 'Note' }).click()
+    await this.selectionMenu.getByRole('button', { name: 'Note' }).click()
     const editor = this.page.getByRole('dialog', { name: 'Edit' })
     await editor.locator('textarea').fill(note)
     await editor.getByRole('button', { name: 'Save' }).click()
@@ -219,8 +237,13 @@ export class Assistant {
   /** Sends a question and waits for the answer to finish. */
   async ask(question: string): Promise<void> {
     await this.open()
-    const before = await this.turns.count()
     await this.input.fill(question)
+    await this.send()
+  }
+
+  /** Sends what is in the input (Enter) and waits for the answer to finish. */
+  async send(): Promise<void> {
+    const before = await this.turns.count()
     await this.input.press('Enter')
     await expect(this.input).toHaveValue('')
     await expect(this.stopButton).toHaveCount(0, { timeout: 60_000 })

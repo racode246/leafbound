@@ -1,6 +1,7 @@
 // Ask AI against the fake LLM in the real app: what goes into the prompt (current
-// chapter, retrieved passages, highlights, window, earlier conversations), the API
-// key path, and the fallback when the search-passage request fails.
+// chapter, retrieved passages, highlights, window, earlier conversations), a question
+// quoting a selection, the API key path, and the fallback when the search-passage
+// request fails.
 //
 // Works with and without the search-passage (HyDE) step: each question must make
 // exactly one answer request, optionally preceded by one search-passage request.
@@ -21,6 +22,11 @@ async function openAssistant(app: App): Promise<{ reader: Reader; ai: Assistant 
 async function ask(app: App, ai: Assistant, question: string): Promise<LlmRequest> {
   const before = app.llm.requests.length
   await ai.ask(question)
+  return answerRequest(app, before, question)
+}
+
+/** The one answer request made since `before` (after an optional search-passage request). */
+function answerRequest(app: App, before: number, question: string): LlmRequest {
   const mine = app.llm.requests.slice(before)
   const answers = mine.filter((r) => !r.searchPassage)
   expect(answers, `one answer request for "${question}"`).toHaveLength(1)
@@ -94,6 +100,43 @@ test('builds the prompt from the chapter, passages, highlights and the conversat
   await ai.open()
   await ai.turns.nth(2).locator('.ai-cite').first().click()
   await expect(reader.chapter).toContainText('第四章')
+})
+
+test('asks about a selection from the selection menu in the paged and scrolled layouts', async ({
+  app
+}) => {
+  const { reader, ai } = await openAssistant(app)
+  await ai.open()
+  await ai.waitUntilReady()
+
+  for (const [flow, paragraph] of [
+    ['Paged (horizontal)', '隠し味は、すりおろしたりんごと少量のインスタントコーヒーである。（1）'],
+    // Near the chapter start, so it is on screen (and the menu with it) in both layouts.
+    ['Scroll (vertical)', 'スパイスはクミン、コリアンダー、ターメリックの三種類だけを使う。（1）']
+  ] as const) {
+    if (flow !== 'Paged (horizontal)') await reader.setFlow(flow)
+    await reader.openChapter('第三章 カレーの作り方')
+    await reader.selectParagraph(paragraph)
+    await reader.askAboutSelection()
+
+    // The quote is in the input with the caret after it: the reader types the question.
+    const quote = `"${paragraph}" — `
+    await expect(ai.panel).toBeVisible()
+    await expect(ai.input).toHaveValue(quote)
+    await expect(ai.input).toBeFocused()
+    await app.page.keyboard.type('what does this mean?')
+    const question = `${quote}what does this mean?`
+    await expect(ai.input).toHaveValue(question)
+
+    const before = app.llm.requests.length
+    await ai.send()
+    const r = answerRequest(app, before, question)
+    expect(r.body.messages.at(-1), `${flow}: the quote is sent with the question`).toEqual({
+      role: 'user',
+      content: question
+    })
+    await expect(ai.turns.last().locator('.ai-question')).toHaveText(question)
+  }
 })
 
 test('stores the API key outside the webview, starts a new chat and keeps history', async ({
