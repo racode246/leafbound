@@ -50,9 +50,9 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 ## Installation
 
-Download the installer (`Leafbound_<version>_x64-setup.exe`) or the MSI from the [Releases page](https://github.com/racode246/leafbound/releases). Builds are not code-signed yet, so Windows SmartScreen may ask you to confirm the first launch.
+Download the installer (`Leafbound_<version>_x64-setup.exe`) from the [Releases page](https://github.com/racode246/leafbound/releases). Builds are not code-signed yet, so Windows SmartScreen may ask you to confirm the first launch.
 
-You can also build an installer from source (see below); the NSIS installer and MSI are written to `src-tauri/target/release/bundle/`.
+You can also build an installer from source (see below); the installer is written to `src-tauri/target/release/bundle/nsis/`.
 
 Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in Windows 11). Ask AI also needs an API key for your provider, or a local OpenAI-compatible server.
 
@@ -82,7 +82,7 @@ Prerequisites:
 ```bash
 npm install
 npm run tauri dev      # run with hot reload
-npm run tauri build    # produce the installer and MSI
+npm run tauri build    # produce the installer
 ```
 
 The first Rust build downloads prebuilt ONNX Runtime binaries (about 350 MB, through the `ort` crate) from `cdn.pyke.io`, verifies them and links them statically. They are cached in `%LOCALAPPDATA%\ort.pyke.io`. To build offline, point `ORT_LIB_LOCATION` at an ONNX Runtime build of your own (see the [ort linking guide](https://ort.pyke.io/setup/linking)).

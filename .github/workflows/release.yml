@@ -8,7 +8,9 @@ name: Release
 # The build runs in this workflow (not on the tag push) because tags created
 # with GITHUB_TOKEN do not trigger other workflows.
 #
-# Running the workflow manually builds the installers as artifacts only.
+# Running the workflow manually builds the installers (and the updater's latest.json and
+# .sig files) as artifacts only. The build job uses the `release` environment, so manual
+# runs work from main only.
 on:
   push:
     branches: [main]
@@ -52,12 +54,16 @@ jobs:
     # always(): still run for workflow_dispatch, where release-please is skipped.
     if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: windows-latest
+    # Holds the updater signing key (TAURI_SIGNING_PRIVATE_KEY[_PASSWORD]); deployable from main only.
+    environment: release
     permissions:
       contents: write
       id-token: write
       attestations: write
     env:
       TAG: ${{ needs.release-please.outputs.tag_name }}
+      # Updater public key (minisign key ID 3541035D1389828D), the pair of the signing key.
+      UPDATER_PUBKEY: dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NDEwMzVEMTM4OTgyOEQKUldTTmdva1RYUU5CTmVFZjdCY25lbms4dTFBSjdlVGpjYlVMYXlMcFo0c28wRmloLytWVExkVlUK
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,8 +105,23 @@ jobs:
 
       # beforeBuildCommand runs `npm run build` (type check + frontend build).
       # --locked fails the build if Cargo.lock was not updated with the version.
+      # Updater artifacts (a .sig next to each installer) are enabled here rather than in
+      # tauri.conf.json, so local builds do not need the signing key.
       - name: Build installers
-        run: npx tauri build -- --locked
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'TAURI_SIGNING_PRIVATE_KEY is not set' }
+          # The bundler also requires plugins.updater.pubkey; merging the same key again is a no-op
+          # once tauri.conf.json has it.
+          $config = Join-Path $env:RUNNER_TEMP 'updater.conf.json'
+          @{
+            bundle = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{ pubkey = $env:UPDATER_PUBKEY } }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 $config
+          npx tauri build --config $config -- --locked
+          if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
 
       - name: Collect installers
         env:
@@ -108,8 +129,7 @@ jobs:
         run: |
           $bundle = 'src-tauri/target/release/bundle'
           $files = @(
-            "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe",
-            "$bundle/msi/Leafbound_${env:VERSION}_x64_en-US.msi"
+            "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe"
           )
           New-Item -ItemType Directory dist-release | Out-Null
           foreach ($f in $files) {
@@ -122,13 +142,29 @@ jobs:
           } | Set-Content -Encoding ascii dist-release/SHA256SUMS.txt
           Get-Content dist-release/SHA256SUMS.txt
 
+      # latest.json for tauri-plugin-updater: the NSIS installer is the update package.
+      # Its URL resolves once the draft is published (drafts are never "latest").
+      - name: Updater manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $bundle = 'src-tauri/target/release/bundle'
+          $sig = "$bundle/nsis/Leafbound_${env:VERSION}_x64-setup.exe.sig"
+          if (-not (Test-Path $sig)) { throw "missing $sig" }
+          Copy-Item $sig dist-release/
+          $url = "https://github.com/${env:GITHUB_REPOSITORY}/releases/download/v${env:VERSION}/Leafbound_${env:VERSION}_x64-setup.exe"
+          node scripts/updater-artifacts.mjs manifest --version $env:VERSION --installer "dist-release/Leafbound_${env:VERSION}_x64-setup.exe" --url $url --changelog CHANGELOG.md --out dist-release/latest.json
+          if ($LASTEXITCODE -ne 0) { throw 'latest.json generation failed' }
+          # Same check as the updater: fails if the secret is not the pair of UPDATER_PUBKEY.
+          node scripts/updater-artifacts.mjs verify --manifest dist-release/latest.json --dir dist-release --version $env:VERSION --url $url
+          if ($LASTEXITCODE -ne 0) { throw 'updater signature check failed' }
+
       - name: Attest build provenance
         if: env.TAG != ''
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist-release/*.exe
-            dist-release/*.msi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
