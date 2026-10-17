@@ -113,7 +113,11 @@ export default function AssistantPanel({
   }, [book.id])
 
   // Load (and on first use download, once the user agreed) the embedding model.
+  // The Loading event sets phase 'loading', which would start a second run below.
+  const preparing = useRef(false)
   const prepare = useCallback(async () => {
+    if (preparing.current) return
+    preparing.current = true
     try {
       await api.assistantPrepare((event) => {
         if (event.type === 'download') setPhase({ kind: 'downloading', done: event.done, total: event.total })
@@ -122,6 +126,8 @@ export default function AssistantPanel({
       setPhase({ kind: 'ready' })
     } catch (err) {
       setPhase({ kind: 'failed', message: String(err) })
+    } finally {
+      preparing.current = false
     }
   }, [])
 
