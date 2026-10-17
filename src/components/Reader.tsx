@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import ePub, {
   type Book as EpubBook,
@@ -29,6 +30,7 @@ import AnnotationsPanel from './AnnotationsPanel'
 import SelectionMenu from './SelectionMenu'
 import AnnotationEditor from './AnnotationEditor'
 import PageNav from './PageNav'
+import Icon from './Icon'
 import AssistantPanel, { type AskContext } from './AssistantPanel'
 import { chapterContext } from '../lib/bookText'
 
@@ -695,7 +697,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             onClick={prev}
             aria-label={t('reader.prev')}
           >
-            ‹
+            <Icon icon={ChevronLeft} />
           </button>
         )}
         <div className="reader-view" ref={containerRef} />
@@ -706,7 +708,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             onClick={next}
             aria-label={t('reader.next')}
           >
-            ›
+            <Icon icon={ChevronRight} />
           </button>
         )}
 

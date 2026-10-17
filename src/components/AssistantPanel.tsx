@@ -1,3 +1,5 @@
+// `SettingsIcon` is Lucide's alias for `Settings`, which here is the app's settings type.
+import { SettingsIcon, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useT, type Translate } from '../i18n'
 import { api } from '../lib/api'
@@ -13,6 +15,7 @@ import {
   type Settings
 } from '../types'
 import AssistantSettingsView from './AssistantSettings'
+import Icon from './Icon'
 
 export type AskContext = Pick<
   AskRequest,
@@ -342,10 +345,10 @@ export default function AssistantPanel({
             title={t('ai.settings.title')}
             aria-label={t('ai.settings.title')}
           >
-            ⚙
+            <Icon icon={SettingsIcon} />
           </button>
           <button type="button" onClick={onClose} aria-label={t('close')}>
-            ×
+            <Icon icon={X} />
           </button>
         </div>
       </div>

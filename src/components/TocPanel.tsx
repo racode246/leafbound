@@ -1,7 +1,9 @@
 import type { NavItem } from 'epubjs'
+import { X } from 'lucide-react'
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 import { useT } from '../i18n'
 import { tocKey } from '../lib/tocCurrent'
+import Icon from './Icon'
 
 interface Props {
   toc: NavItem[]
@@ -81,7 +83,7 @@ export default function TocPanel({ toc, current, onNavigate, onClose }: Props) {
       <div className="panel-head">
         <span>{t('toc.title')}</span>
         <button type="button" onClick={onClose} aria-label={t('close')}>
-          ×
+          <Icon icon={X} />
         </button>
       </div>
       {toc.length === 0 ? (

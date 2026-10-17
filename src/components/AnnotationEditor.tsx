@@ -1,6 +1,8 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../i18n'
 import { HIGHLIGHT_COLORS, type Annotation, type HighlightColor } from '../types'
+import Icon from './Icon'
 
 interface Props {
   annotation: Annotation
@@ -56,7 +58,7 @@ export default function AnnotationEditor({
           ))}
         </div>
         <button type="button" onClick={onClose} aria-label={t('close')}>
-          ×
+          <Icon icon={X} />
         </button>
       </div>
       <blockquote className="annotation-quote">{annotation.text}</blockquote>

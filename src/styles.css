@@ -65,6 +65,15 @@ button:hover {
   background: #fff;
 }
 
+/* Lucide icons (components/Icon.tsx), drawn in currentColor. Lowered a little below the
+   baseline, the 16 px box is centred on the capitals of the text around it and, with 13-14 px
+   text, stays inside the line box, so an icon-only button is as tall as a text button. */
+.icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.2em;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -570,7 +579,8 @@ input:not([type]) {
 .col-actions button {
   border: none;
   background: transparent;
-  padding: 2px 5px;
+  /* three 16 px icons fit the list's 96 px actions column (76 px inside its padding) */
+  padding: 2px 4px;
   font-size: 13px;
 }
 
@@ -916,9 +926,14 @@ input:not([type]) {
   width: 48px;
   border: none;
   background: transparent;
-  font-size: 32px;
   opacity: 0.25;
   border-radius: 0;
+}
+
+/* The only cue in an empty margin, so larger than the other icons (the stroke scales with it). */
+.edge .icon {
+  width: 32px;
+  height: 32px;
 }
 
 .edge:hover {

@@ -1,3 +1,4 @@
+import { LayoutGrid, List } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -6,6 +7,7 @@ import Sidebar from './Sidebar'
 import BookCard from './BookCard'
 import BookRow from './BookRow'
 import CategoryPicker from './CategoryPicker'
+import Icon from './Icon'
 import TitleBar from './TitleBar'
 
 interface Props {
@@ -182,7 +184,7 @@ export default function LibraryView({
                 title={t('view.grid')}
                 aria-label={t('view.grid')}
               >
-                ▦
+                <Icon icon={LayoutGrid} />
               </button>
               <button
                 type="button"
@@ -191,7 +193,7 @@ export default function LibraryView({
                 title={t('view.list')}
                 aria-label={t('view.list')}
               >
-                ☰
+                <Icon icon={List} />
               </button>
             </fieldset>
             <button type="button" className="primary" onClick={onImport}>

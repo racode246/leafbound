@@ -24,7 +24,7 @@ function parsePage(text: string): number | null {
 export default function PageNav({ percent, page, totalPages, chapterAt, onJump, inputRef }: Props) {
   const t = useT()
   const [drag, setDrag] = useState<number | null>(null)
-  // pointerup → blur() → onBlur runs before re-render; the ref keeps that from jumping twice.
+  // pointerup, then blur(), then onBlur runs before re-render; the ref keeps that from jumping twice.
   const dragRef = useRef<number | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const ready = totalPages > 0

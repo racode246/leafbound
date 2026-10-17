@@ -1,6 +1,8 @@
+import { X } from 'lucide-react'
 import { useState } from 'react'
 import { useT } from '../i18n'
 import { ALL_BOOKS, UNCATEGORIZED, type LanguageSetting } from '../types'
+import Icon from './Icon'
 import LanguageSelect from './LanguageSelect'
 
 interface Props {
@@ -104,7 +106,7 @@ export default function Sidebar({
                 aria-label={t('lib.removeCategoryAria', { name: c })}
                 onClick={() => void onRemove(c)}
               >
-                ×
+                <Icon icon={X} />
               </button>
             </li>
           )

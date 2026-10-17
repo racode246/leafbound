@@ -1,6 +1,8 @@
+import { RefreshCw, Tags, Trash2 } from 'lucide-react'
 import { useT, type Translate } from '../i18n'
 import type { Book } from '../types'
 import Cover from './Cover'
+import Icon from './Icon'
 
 interface Props {
   book: Book
@@ -51,13 +53,13 @@ export default function BookCard({ book, onOpen, onCategories, onRefreshCover, o
               title={t('card.categories')}
               onClick={(e) => onCategories(e.currentTarget)}
             >
-              ⌂
+              <Icon icon={Tags} />
             </button>
             <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>
-              ↻
+              <Icon icon={RefreshCw} />
             </button>
             <button type="button" title={t('card.delete')} onClick={onDelete}>
-              🗑
+              <Icon icon={Trash2} />
             </button>
           </span>
         </div>

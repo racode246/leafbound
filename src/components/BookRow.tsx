@@ -1,7 +1,9 @@
+import { RefreshCw, Tags, Trash2 } from 'lucide-react'
 import { useT } from '../i18n'
 import type { Book } from '../types'
 import Cover from './Cover'
 import { progressLabel } from './BookCard'
+import Icon from './Icon'
 
 interface Props {
   book: Book
@@ -53,13 +55,13 @@ export default function BookRow({ book, onOpen, onCategories, onRefreshCover, on
           title={t('card.categories')}
           onClick={(e) => onCategories(e.currentTarget)}
         >
-          ⌂
+          <Icon icon={Tags} />
         </button>
         <button type="button" title={t('card.refreshCover')} onClick={onRefreshCover}>
-          ↻
+          <Icon icon={RefreshCw} />
         </button>
         <button type="button" title={t('card.delete')} onClick={onDelete}>
-          🗑
+          <Icon icon={Trash2} />
         </button>
       </td>
     </tr>

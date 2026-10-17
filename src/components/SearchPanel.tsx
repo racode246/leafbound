@@ -1,7 +1,9 @@
+import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { MAX_HITS, type SearchProgress } from '../lib/search'
 import type { SearchHit } from '../types'
+import Icon from './Icon'
 
 interface Props {
   query: string
@@ -45,7 +47,7 @@ export default function SearchPanel({
         <div className="panel-head">
           <span>{t('search.title')}</span>
           <button type="button" onClick={onClose} aria-label={t('close')}>
-            ×
+            <Icon icon={X} />
           </button>
         </div>
         <form
