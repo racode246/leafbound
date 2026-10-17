@@ -41,30 +41,32 @@ export default function SearchPanel({
 
   return (
     <aside className="panel search-panel" aria-label={t('search.title')}>
-      <div className="panel-head">
-        <span>{t('search.title')}</span>
-        <button type="button" onClick={onClose} aria-label={t('close')}>
-          ×
-        </button>
+      <div className="panel-sticky">
+        <div className="panel-head">
+          <span>{t('search.title')}</span>
+          <button type="button" onClick={onClose} aria-label={t('close')}>
+            ×
+          </button>
+        </div>
+        <form
+          className="inline-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (draft.trim()) onSearch(draft.trim())
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="search"
+            value={draft}
+            placeholder={t('search.placeholder')}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <button type="submit" disabled={running || !draft.trim()}>
+            {t('reader.search')}
+          </button>
+        </form>
       </div>
-      <form
-        className="inline-form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (draft.trim()) onSearch(draft.trim())
-        }}
-      >
-        <input
-          ref={inputRef}
-          type="search"
-          value={draft}
-          placeholder={t('search.placeholder')}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        <button type="submit" disabled={running || !draft.trim()}>
-          {t('reader.search')}
-        </button>
-      </form>
 
       {running && progress && (
         <p className="muted small">{t('search.searching', { done: progress.done, total: progress.total })}</p>
