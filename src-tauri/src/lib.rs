@@ -40,6 +40,11 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             let store = LibraryStore::load(data_dir.clone())?;
+            // Before the store is managed, so no command can have started an
+            // import (whose files exist before its id is in the library). A
+            // second instance never gets here: the single-instance plugin exits
+            // during plugin setup, which runs before this hook.
+            store.remove_orphaned_files();
             app.manage(AppState(Mutex::new(store)));
             app.manage(assistant::AssistantState::new(
                 &data_dir,

@@ -270,3 +270,153 @@ fn tracks_progress_categories_and_settings() {
 
     fs::remove_dir_all(dir).ok();
 }
+
+/// Puts files named like book files (`<id>.epub`, `.img`, `.json`) for `id`.
+fn plant_book_files(store: &LibraryStore, id: &str) -> Vec<PathBuf> {
+    let paths = vec![
+        store.book_path(id),
+        store.cover_path(id),
+        store.annotations_path(id),
+    ];
+    for path in &paths {
+        fs::write(path, "left behind").unwrap();
+    }
+    paths
+}
+
+fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+#[test]
+fn removes_files_of_unknown_books_and_keeps_the_rest() {
+    let dir = temp_dir("orphans");
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    // A first start has nothing to clean up.
+    assert!(store.remove_orphaned_files().is_empty());
+    let book = added(store.import_file(&fixture()).unwrap());
+    let note = Annotation {
+        id: "a1".into(),
+        cfi_range: "epubcfi(/6/4!/4/2,/1:0,/1:10)".into(),
+        text: "text".into(),
+        note: String::new(),
+        color: "yellow".into(),
+        created_at: "2026-10-18T00:00:00Z".into(),
+        updated_at: "2026-10-18T00:00:00Z".into(),
+    };
+    store.save_annotations(&book.id, &[note]).unwrap();
+    let kept_book_files = [
+        store.book_path(&book.id),
+        store.cover_path(&book.id),
+        store.annotations_path(&book.id),
+    ];
+
+    let orphan = new_id();
+    let orphans = plant_book_files(&store, &orphan);
+
+    // Names that do not follow the book file naming are never ours to remove.
+    // Each uses its own id: Windows file names are case-insensitive.
+    let books = dir.join("books");
+    let foreign = [
+        books.join("notes.txt"),
+        books.join("my book.epub"),
+        books.join(format!("{}.epub", new_id().to_uppercase())),
+        books.join(format!("{}.epub", new_id().replace('-', ""))),
+        books.join(format!("{}.EPUB", new_id())),
+        books.join(format!("{}.epub.part", new_id())),
+        books.join(format!("{}.img", new_id())),
+        dir.join("covers").join(format!("{}.png", new_id())),
+        dir.join("annotations")
+            .join(format!("{}.json.tmp", new_id())),
+    ];
+    for path in &foreign {
+        fs::write(path, "not ours").unwrap();
+    }
+    let folder = books.join(format!("{}.epub", new_id()));
+    fs::create_dir_all(folder.join("inside")).unwrap();
+    drop(store);
+
+    let store = LibraryStore::load(dir.clone()).unwrap();
+    let mut removed = store.remove_orphaned_files();
+    removed.sort();
+    let mut expected = orphans.clone();
+    expected.sort();
+    assert_eq!(removed, expected);
+    for path in &orphans {
+        assert!(!path.exists(), "{} should be removed", path.display());
+    }
+    for path in kept_book_files.iter().chain(&foreign) {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+    assert!(folder.join("inside").is_dir());
+
+    // The known book is intact.
+    assert_eq!(
+        store.read_book(&book.id).unwrap(),
+        fs::read(fixture()).unwrap()
+    );
+    assert_eq!(store.load_annotations(&book.id).unwrap().len(), 1);
+    assert!(store.remove_orphaned_files().is_empty());
+
+    fs::remove_dir_all(dir).ok();
+}
+
+/// A library that cannot be used as the list of books removes nothing, not even
+/// once the empty library that replaced it has been saved.
+fn assert_keeps_files_after_reset(dir: PathBuf) {
+    let store = LibraryStore::load(dir.clone()).unwrap();
+    let id = new_id();
+    let files = plant_book_files(&store, &id);
+    drop(store);
+
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    assert!(store.snapshot().books.is_empty());
+    assert!(store.remove_orphaned_files().is_empty());
+    for path in &files {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+
+    // Any change saves the (empty) library; the next start still keeps the files.
+    let _ = store.add_category("SF");
+    drop(store);
+    let store = LibraryStore::load(dir.clone()).unwrap();
+    assert!(store.remove_orphaned_files().is_empty());
+    for path in &files {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn unparsable_library_removes_nothing() {
+    let dir = temp_dir("broken");
+    // Make the directories, then break library.json.
+    drop(LibraryStore::load(dir.clone()).unwrap());
+    fs::write(dir.join("library.json"), "{ \"books\": [ not json").unwrap();
+    assert_keeps_files_after_reset(dir);
+}
+
+#[test]
+fn unreadable_library_removes_nothing() {
+    let dir = temp_dir("unreadable");
+    drop(LibraryStore::load(dir.clone()).unwrap());
+    // Reading a directory fails with an error other than "not found".
+    fs::create_dir_all(dir.join("library.json")).unwrap();
+    let store = LibraryStore::load(dir.clone()).unwrap();
+    let files = plant_book_files(&store, &new_id());
+    drop(store);
+
+    let store = LibraryStore::load(dir.clone()).unwrap();
+    assert!(store.remove_orphaned_files().is_empty());
+    for path in &files {
+        assert!(path.exists(), "{} should be kept", path.display());
+    }
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn missing_library_removes_nothing() {
+    let dir = temp_dir("missing");
+    assert_keeps_files_after_reset(dir);
+}
