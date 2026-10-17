@@ -9,10 +9,12 @@ import type {
   Exchange,
   ImportOutcome,
   IndexChunk,
+  InstallEvent,
   Library,
   LlmProvider,
   PrepareEvent,
-  Settings
+  Settings,
+  UpdateInfo
 } from '../types'
 
 export type Unlisten = () => void
@@ -65,4 +67,17 @@ export interface LeafboundApi {
   clearAssistantHistory(bookId: string): Promise<void>
   ask(request: AskRequest, onEvent: (event: AskEvent) => void): Promise<Exchange>
   cancelAsk(requestId: string): Promise<void>
+
+  // Updates
+  appVersion(): Promise<string>
+  /**
+   * Asks the update endpoint for a newer release. `automatic` is the startup check: at
+   * most once a day, and failures are only logged (it resolves to null).
+   */
+  checkForUpdate(automatic: boolean): Promise<UpdateInfo | null>
+  /**
+   * Downloads, verifies and installs the update found by the last check. The app exits
+   * and the installer restarts it, so this settles only when installing fails.
+   */
+  installUpdate(onEvent: (event: InstallEvent) => void): Promise<void>
 }

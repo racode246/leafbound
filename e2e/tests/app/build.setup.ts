@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { appExe, identifier, ports, root, workDir, WRY_DEFAULT_ARGS } from '../../support/env.ts'
+import { testPublicKey } from '../../support/fake-updates.ts'
 
 setup('build the E2E app', async ({ headless }) => {
   setup.setTimeout(30 * 60_000)
@@ -27,7 +28,14 @@ setup('build the E2E app', async ({ headless }) => {
   }))
   mkdirSync(workDir, { recursive: true })
   const config = join(workDir, 'tauri.e2e.json')
-  writeFileSync(config, JSON.stringify({ identifier, app: { windows } }))
+  // Updates come from the fake server (support/fake-updates.ts), over http, signed with
+  // the test key rather than the release key.
+  const updater = {
+    endpoints: [`http://127.0.0.1:${ports.updates}/latest.json`],
+    pubkey: testPublicKey(),
+    dangerousInsecureTransportProtocol: true
+  }
+  writeFileSync(config, JSON.stringify({ identifier, app: { windows }, plugins: { updater } }))
 
   const cli = join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
   const build = spawnSync(

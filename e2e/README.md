@@ -27,6 +27,7 @@ Both suites run headless; add `-- --headed` to watch (for the app this builds a 
 - WebView2's debugging port is set through the window's `additionalBrowserArgs` in the E2E build config.
 - Each test seeds a fresh data folder (`support/seed.ts`), launches the app with the test book, and removes everything afterwards. `app.relaunch()` restarts on the same data.
 - The identifier is compiled in, so app tests run with one worker. Worktrees made by `.claude/scripts/wt-new.ps1` get their own identifier and ports from `.wt.json`, so several worktrees can run the suites at once.
+- The E2E build checks for updates at a fake update server on a fixed port per slot (`support/fake-updates.ts`), with http allowed and a test public key (`fixtures/updater/test-key.pub`) instead of the release key. It only ever serves updates that must not install.
 - Ask AI talks to a fake OpenAI-compatible server (`support/fake-llm.ts`); the real embedding model is copied in from `E2E_MODEL_DIR` or the installed app, or downloaded on first use.
 
 ## Writing tests

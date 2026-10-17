@@ -4,3 +4,6 @@
 *.tsx  text eol=lf
 *.css  text eol=lf
 *.json text eol=lf
+
+# Signed test payload (e2e/fixtures/updater): the signature covers the exact bytes.
+*.bin  binary

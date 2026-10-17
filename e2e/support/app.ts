@@ -5,10 +5,11 @@
 // to the first by the single-instance plugin).
 import { chromium, expect, test as base, type Browser, type Page } from '@playwright/test'
 import { spawn, spawnSync, execFileSync, type ChildProcess } from 'node:child_process'
-import { createWriteStream, existsSync } from 'node:fs'
+import { createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { appExe, fixtures, ports } from './env.ts'
 import { startFakeLlm, type FakeLlm } from './fake-llm.ts'
+import { startFakeUpdates, type FakeUpdates, type UpdateMode } from './fake-updates.ts'
 import { keepDownloadedModel, removeAppData, seed, type Seed } from './seed.ts'
 
 export const TEST_BOOK = join(fixtures, 'assistant-test.epub')
@@ -16,6 +17,10 @@ export const TEST_BOOK = join(fixtures, 'assistant-test.epub')
 export interface App {
   page: Page
   llm: FakeLlm
+  /** The update server the build checks (the `updateMode` option picks its answers). */
+  updates: FakeUpdates
+  /** What the app has written to stdout/stderr so far (app.log). */
+  log(): string
   /** Calls a Tauri command from the page. */
   invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T>
   /**
@@ -29,6 +34,7 @@ export interface AppOptions {
   seedOptions: Pick<Seed, 'language' | 'model'>
   /** Files passed on the command line (like "Open with"). */
   openFiles: string[]
+  updateMode: UpdateMode
 }
 
 /** Credential Manager entries of the installed app; E2E runs must not change them. */
@@ -78,13 +84,16 @@ async function appPage(browser: Browser): Promise<Page> {
 export const test = base.extend<AppOptions & { app: App }>({
   seedOptions: [{ language: 'en', model: false }, { option: true }],
   openFiles: [[TEST_BOOK], { option: true }],
+  updateMode: ['none', { option: true }],
 
-  app: async ({ seedOptions, openFiles }, use, testInfo) => {
+  app: async ({ seedOptions, openFiles, updateMode }, use, testInfo) => {
     if (testInfo.parallelIndex > 0)
       throw new Error('run the app project with --workers=1 (npm run e2e:app)')
     if (!existsSync(appExe))
       throw new Error(`no E2E build at ${appExe}; run the app-build project first`)
 
+    // Every first launch makes the automatic update check against this server.
+    const updates = await startFakeUpdates(updateMode)
     const llm = await startFakeLlm()
     seed({ ...seedOptions, llmUrl: llm.url })
     const credentialsBefore = installedAppCredentials()
@@ -114,6 +123,8 @@ export const test = base.extend<AppOptions & { app: App }>({
     const app: App = {
       page: await launch(openFiles),
       llm,
+      updates,
+      log: () => readFileSync(testInfo.outputPath('app.log'), 'utf8'),
       invoke: (cmd, args = {}) =>
         app.page.evaluate(
           ([c, a]) =>
@@ -138,6 +149,7 @@ export const test = base.extend<AppOptions & { app: App }>({
       log.end()
       await testInfo.attach('app.log', { path: testInfo.outputPath('app.log') }).catch(() => {})
       await llm.close()
+      await updates.close()
       keepDownloadedModel()
       removeAppData()
     }

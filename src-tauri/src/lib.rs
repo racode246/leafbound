@@ -3,6 +3,7 @@ mod commands;
 mod cover;
 mod covers_protocol;
 pub mod library;
+pub mod updates;
 
 use std::sync::Mutex;
 
@@ -36,6 +37,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .register_uri_scheme_protocol(covers_protocol::SCHEME, covers_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
@@ -50,6 +52,7 @@ pub fn run() {
                 &data_dir,
                 &app.config().identifier,
             )?);
+            app.manage(updates::UpdateState::new(data_dir));
             app.manage(PendingOpen(Mutex::new(epub_args(std::env::args().skip(1)))));
             Ok(())
         })
@@ -78,6 +81,8 @@ pub fn run() {
             assistant::assistant_clear_history,
             assistant::assistant_ask,
             assistant::assistant_cancel,
+            updates::update_check,
+            updates::update_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Leafbound");

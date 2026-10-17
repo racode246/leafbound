@@ -19,7 +19,9 @@ export const ports = {
   /** Vite dev server for the mock project. */
   vite: 1425 + 10 * slot,
   /** WebView2 remote debugging port of the E2E app. */
-  app: 9360 + slot
+  app: 9360 + slot,
+  /** Fake update server (support/fake-updates.ts); its URL is baked into the E2E build. */
+  updates: 9370 + slot
 }
 
 /** Outside the repository so a running `tauri dev` (Vite watcher) never sees it. */

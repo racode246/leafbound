@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { I18nProvider, resolveLang, useT } from './i18n'
 import { api } from './lib/api'
+import { useUpdates } from './lib/useUpdates'
 import type { Book, ImportOutcome, Library, Settings } from './types'
 import LibraryView from './components/LibraryView'
 import Reader from './components/Reader'
+import UpdateDialog from './components/UpdateDialog'
 
 type Route = { kind: 'library' } | { kind: 'reader'; bookId: string }
 
@@ -42,6 +44,7 @@ function Shell({ library, setLibrary }: ShellProps) {
   const [error, setError] = useState<string | null>(null)
   const [noticeState, setNoticeState] = useState<NoticeState>({ duplicates: [], failed: [] })
   const [dragging, setDragging] = useState(false)
+  const updates = useUpdates()
   const libraryRef = useRef<Library | null>(null)
   libraryRef.current = library
 
@@ -249,6 +252,7 @@ function Shell({ library, setLibrary }: ShellProps) {
             onProgress={(p) => replaceBook({ ...book, progress: p, lastOpenedAt: p.updatedAt })}
           />
           {dropOverlay}
+          <UpdateDialog updates={updates} />
         </>
       )
     }
@@ -268,8 +272,10 @@ function Shell({ library, setLibrary }: ShellProps) {
         onSettings={updateSettings}
         onLibrary={setLibrary}
         onBook={replaceBook}
+        updates={updates}
       />
       {dropOverlay}
+      <UpdateDialog updates={updates} />
     </>
   )
 }
