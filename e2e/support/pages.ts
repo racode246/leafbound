@@ -118,7 +118,8 @@ export class Assistant {
   /** Waits until the model is loaded and the book indexed; consents to the download if asked. */
   async waitUntilReady(): Promise<void> {
     const consent = this.panel.getByRole('button', { name: 'Download and set up' })
-    await expect(consent.or(this.input)).toBeVisible()
+    // Without the model both the consent button and the (disabled) input are shown.
+    await expect.poll(async () => (await consent.isVisible()) || (await this.input.isEnabled()), { timeout: 60_000 }).toBe(true)
     if (await consent.isVisible()) await consent.click()
     await expect(this.input).toBeEnabled({ timeout: 600_000 })
     await expect(this.panel.locator('.ai-progress')).toHaveCount(0, { timeout: 600_000 })
