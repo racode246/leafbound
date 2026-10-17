@@ -1,7 +1,7 @@
 // E2E projects (see e2e/README.md):
 //   mock       browser build against the mock backend, installed Edge (headless)
 //   app-build  builds the real app with the slot's identifier and CDP port
-//   app        the real app over WebView2 CDP; run with --workers=1
+//   app        the real app over WebView2 CDP, window hidden unless --headed; run with --workers=1
 //   live       real LLM and model quality; local only, for related issues
 import { defineConfig } from '@playwright/test'
 import { ports, root } from './support/env.ts'

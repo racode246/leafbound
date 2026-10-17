@@ -15,11 +15,11 @@ Playwright Test, in four layers with the rest of the test suite:
 ```bash
 npm run e2e          # mock, then app
 npm run e2e:mock     # starts Vite on its own port, runs headless Edge
-npm run e2e:app      # builds the app once (debug, E2E identifier), then runs the tests one at a time
+npm run e2e:app      # builds the app once (debug, E2E identifier, hidden window), then runs the tests one at a time
 npm run e2e:live     # local only; needs an API key stored in the E2E app
 ```
 
-`E2E_SKIP_BUILD=1` reuses the last app build. Reports go to `e2e/report/`, traces and app logs to `e2e/results/`.
+Both suites run headless; add `-- --headed` to watch (for the app this builds a visible window). `E2E_SKIP_BUILD=1` reuses the last app build when it was made in the same mode. Reports go to `e2e/report/`, traces and app logs to `e2e/results/`.
 
 ## How the app project is isolated
 
