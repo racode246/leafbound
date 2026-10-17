@@ -4,7 +4,7 @@
 
 Windows 向けの、静かで軽いオープンソース EPUB リーダーです。読んでいる本の内容を AI に質問できます。
 
-https://github.com/user-attachments/assets/222f0ce2-ed7d-4502-baf8-69c602d6b3cc
+https://github.com/user-attachments/assets/a9ec5861-b565-4ac1-9db6-a431f097cb5b
 
 Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.js](https://github.com/futurepress/epub.js) で作られています。本をローカルのライブラリに保管し、読んだ位置を覚え、読書の邪魔をしないことを目指しています。本について話したくなったら「AI に質問」を開いてください。登場人物が誰だったか、3 章前に何があったか、先週引いたハイライトとこの一節がどうつながるか、といったことを聞けます。
 

@@ -4,7 +4,6 @@
 
 A calm, open-source EPUB reader for Windows, with an AI reading companion that answers questions about the book you are reading.
 
-
 https://github.com/user-attachments/assets/a9ec5861-b565-4ac1-9db6-a431f097cb5b
 
 
