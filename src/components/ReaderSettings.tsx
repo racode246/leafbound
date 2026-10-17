@@ -1,3 +1,4 @@
+import { Minus, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import { useT } from '../i18n'
 import {
@@ -10,6 +11,7 @@ import {
   type Spread,
   type ThemeName
 } from '../types'
+import Icon from './Icon'
 import LanguageSelect from './LanguageSelect'
 
 interface Props {
@@ -45,7 +47,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
       <div className="panel-head">
         <span>{t('settings.title')}</span>
         <button type="button" onClick={onClose} aria-label={t('close')}>
-          ×
+          <Icon icon={X} />
         </button>
       </div>
 
@@ -149,7 +151,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             onClick={() => onChange({ fontSize: clampSize(settings.fontSize - 1) })}
             aria-label={t('fontSize.smaller')}
           >
-            −
+            <Icon icon={Minus} />
           </button>
           <input
             type="range"
@@ -164,7 +166,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             onClick={() => onChange({ fontSize: clampSize(settings.fontSize + 1) })}
             aria-label={t('fontSize.larger')}
           >
-            ＋
+            <Icon icon={Plus} />
           </button>
         </div>
       </section>
@@ -179,7 +181,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight - 0.1) })}
             aria-label={t('lineHeight.tighter')}
           >
-            −
+            <Icon icon={Minus} />
           </button>
           <input
             type="range"
@@ -194,7 +196,7 @@ export default function ReaderSettings({ settings, onChange, onClose }: Props) {
             onClick={() => onChange({ lineHeight: clampLh(settings.lineHeight + 0.1) })}
             aria-label={t('lineHeight.wider')}
           >
-            ＋
+            <Icon icon={Plus} />
           </button>
         </div>
       </section>

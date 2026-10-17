@@ -1,5 +1,7 @@
+import { X } from 'lucide-react'
 import { useT } from '../i18n'
 import { HIGHLIGHT_COLORS, type Annotation } from '../types'
+import Icon from './Icon'
 
 interface Props {
   annotations: Annotation[]
@@ -22,7 +24,7 @@ export default function AnnotationsPanel({
       <div className="panel-head">
         <span>{t('hl.title')}</span>
         <button type="button" onClick={onClose} aria-label={t('close')}>
-          ×
+          <Icon icon={X} />
         </button>
       </div>
       {annotations.length === 0 ? (
