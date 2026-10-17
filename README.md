@@ -12,6 +12,7 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 - Opens EPUB 2 and EPUB 3 files. Books are copied into a local library; your original files are never modified.
 - Remembers your reading position per book and resumes there.
+- Jump to a page number (Ctrl+G) or drag the progress bar to move through the book. Page numbers are fixed-size text chunks, so they don't change with font or layout.
 - Categories for organizing the library. A book can belong to any number of categories.
 - Cover grid or list view, search by title or author, and sorting by recently read, date added, title or author.
 - Paged (horizontal) or continuous scrolling (vertical) reading.
@@ -39,6 +40,7 @@ Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in
 | `→` `PageDown` `Space` | Next page |
 | `←` `PageUp` | Previous page |
 | `Ctrl+F` | Search in the book |
+| `Ctrl+G` | Go to page |
 | `Esc` | Close the open panel |
 
 Mouse wheel turns pages in paged mode.
