@@ -1,0 +1,6 @@
+# rustfmt configuration. Checked in CI with `cargo fmt --check`.
+#
+# Stable rustfmt defaults on purpose: no nightly-only options, so the stable
+# toolchain in CI and locally formats the same way. The edition (2021) comes
+# from Cargo.toml. `newline_style` stays at its default (Auto) so the check
+# accepts both LF files and a CRLF checkout (core.autocrlf=true on Windows).
