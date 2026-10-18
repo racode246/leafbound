@@ -170,20 +170,20 @@ pub async fn update_check(
 ) -> Result<Option<UpdateInfo>, String> {
     if automatic {
         if tauri::is_dev() {
-            eprintln!("update: no automatic check in `tauri dev`");
+            log::info!("update: no automatic check in `tauri dev`");
             return Ok(None);
         }
         let now = Utc::now();
         let record = CheckRecord::load(&state.data_dir);
         if !record.is_due(now) {
-            eprintln!(
+            log::info!(
                 "update: no automatic check, the last one was at {}",
                 record.last_checked_at.as_deref().unwrap_or_default()
             );
             return Ok(None);
         }
         if let Err(err) = CheckRecord::checked_at(now).save(&state.data_dir) {
-            eprintln!("update: cannot save {CHECK_FILE}: {err}");
+            log::warn!("update: cannot save {CHECK_FILE}: {err}");
         }
     }
 
@@ -198,9 +198,10 @@ pub async fn update_check(
 
     match found {
         Ok(Some(mut update)) => {
-            eprintln!(
+            log::info!(
                 "update: {} is available (running {})",
-                update.version, update.current_version
+                update.version,
+                update.current_version
             );
             update.timeout = Some(DOWNLOAD_TIMEOUT);
             let info = UpdateInfo::from(&update);
@@ -208,12 +209,12 @@ pub async fn update_check(
             Ok(Some(info))
         }
         Ok(None) => {
-            eprintln!("update: up to date");
+            log::info!("update: up to date");
             *state.pending.lock().unwrap() = None;
             Ok(None)
         }
         Err(err) => {
-            eprintln!("update: check failed: {err}");
+            log::warn!("update: check failed: {err}");
             if automatic {
                 Ok(None)
             } else {
@@ -243,7 +244,7 @@ pub async fn update_install(
         return Err("an update is already being installed".into());
     }
 
-    eprintln!("update: installing {}", update.version);
+    log::info!("update: installing {}", update.version);
     let mut progress = ProgressThrottle::default();
     let result = update
         .download_and_install(
@@ -263,7 +264,7 @@ pub async fn update_install(
         // macOS only: on Windows the plugin exits the app to run the installer.
         Ok(()) => app.restart(),
         Err(err) => {
-            eprintln!("update: install failed: {err}");
+            log::error!("update: install failed: {err}");
             Err(err.to_string())
         }
     }

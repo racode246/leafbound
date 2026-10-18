@@ -65,7 +65,7 @@ impl AssistantState {
         // A broken database must not keep the reader from starting: fall back to
         // a throwaway in-memory store and say why.
         let db = AssistantDb::open(&data_dir.join("assistant.sqlite")).or_else(|err| {
-            eprintln!("assistant: {err}; using an in-memory store for this session");
+            log::error!("assistant: {err}; using an in-memory store for this session");
             AssistantDb::open_in_memory()
         })?;
         let http = reqwest::Client::builder()
@@ -92,7 +92,7 @@ impl AssistantState {
     /// Removes everything stored for a deleted book.
     pub fn forget_book(&self, book_id: &str) {
         if let Err(err) = self.db().delete_book(book_id) {
-            eprintln!("assistant: could not forget {book_id}: {err}");
+            log::warn!("assistant: could not forget {book_id}: {err}");
         }
     }
 
@@ -363,7 +363,7 @@ pub async fn assistant_ask(
         Ok(_) => None,
         Err(ChatError::Cancelled) => return Err(ERR_CANCELLED.into()),
         Err(err) => {
-            eprintln!("assistant: search passage failed, searching with the question: {err:?}");
+            log::warn!("assistant: search passage failed, searching with the question: {err:?}");
             None
         }
     };

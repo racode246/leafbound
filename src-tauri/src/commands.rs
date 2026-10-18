@@ -36,7 +36,7 @@ pub async fn import_books(state: Store<'_>, paths: Vec<String>) -> Result<Import
         let prepared = match dirs.prepare(path) {
             Ok(prepared) => prepared,
             Err(err) => {
-                eprintln!("import failed for {p}: {err}");
+                log::warn!("import failed for {p}: {err}");
                 outcome.failed.push(name);
                 continue;
             }
@@ -68,7 +68,7 @@ pub async fn import_book_bytes(
     match dirs.prepare_bytes(&name, bytes) {
         Ok(prepared) => record(&mut outcome, name, lock(&state).commit_import(prepared)),
         Err(err) => {
-            eprintln!("import failed for {name}: {err}");
+            log::warn!("import failed for {name}: {err}");
             outcome.failed.push(name);
         }
     }
@@ -80,7 +80,7 @@ fn record(outcome: &mut ImportOutcome, name: String, result: Result<Import, Stri
         Ok(Import::Added(book)) => outcome.added.push(book),
         Ok(Import::Duplicate(_)) => outcome.duplicates.push(name),
         Err(err) => {
-            eprintln!("import failed for {name}: {err}");
+            log::warn!("import failed for {name}: {err}");
             outcome.failed.push(name);
         }
     }

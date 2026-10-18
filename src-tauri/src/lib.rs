@@ -3,6 +3,7 @@ mod commands;
 mod cover;
 mod covers_protocol;
 pub mod library;
+mod logging;
 pub mod updates;
 
 use std::sync::Mutex;
@@ -59,6 +60,12 @@ pub fn run() {
         )))))
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
+            app.handle().plugin(logging::plugin(&data_dir))?;
+            log::info!(
+                "Leafbound {} starting, data in {}",
+                env!("CARGO_PKG_VERSION"),
+                data_dir.display()
+            );
             let mut store = LibraryStore::load(data_dir.clone())?;
             // Before the store is managed, so no command can have started an
             // import (whose files exist before its id is in the library). A
