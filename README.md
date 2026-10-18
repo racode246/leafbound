@@ -121,6 +121,7 @@ Browser mode: `npm run dev` and open http://localhost:1420 in a browser. Outside
 | `annotations\` | Highlights and notes, one JSON file per book |
 | `assistant.sqlite` | Ask AI: passage, highlight and conversation vectors, and conversation history |
 | `models\` | The local embedding model, downloaded on first use of Ask AI |
+| `logs\` | Log files (`leafbound.log`, rotated at 1 MB, the last 4 kept); attach them to a bug report |
 
 Removing a book from the library deletes its copy, annotations and everything Ask AI stored for it. Original files are not touched. API keys live in Windows Credential Manager or the macOS Keychain, not in this folder.
 

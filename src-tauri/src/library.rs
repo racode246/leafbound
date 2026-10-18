@@ -312,7 +312,7 @@ impl LibraryStore {
             Ok(raw) => match serde_json::from_str::<Persisted>(&raw) {
                 Ok(data) => (data, LoadStatus::Loaded),
                 Err(err) => {
-                    eprintln!("library: {} is unparsable: {err}", file.display());
+                    log::error!("library: {} is unparsable: {err}", file.display());
                     (Persisted::default(), LoadStatus::Unreadable)
                 }
             },
@@ -320,7 +320,7 @@ impl LibraryStore {
                 (Persisted::default(), LoadStatus::Missing)
             }
             Err(err) => {
-                eprintln!("library: {} is unreadable: {err}", file.display());
+                log::error!("library: {} is unreadable: {err}", file.display());
                 (Persisted::default(), LoadStatus::Unreadable)
             }
         };
@@ -354,7 +354,7 @@ impl LibraryStore {
             let entries = match fs::read_dir(dir) {
                 Ok(entries) => entries,
                 Err(err) => {
-                    eprintln!("library: cannot list {}: {err}", dir.display());
+                    log::warn!("library: cannot list {}: {err}", dir.display());
                     continue;
                 }
             };
@@ -385,7 +385,7 @@ impl LibraryStore {
         match self.status {
             LoadStatus::Loaded if self.data.prune_orphans => {}
             LoadStatus::Loaded => {
-                eprintln!("library: keeping unknown book files (the library was reset)");
+                log::info!("library: keeping unknown book files (the library was reset)");
                 return Vec::new();
             }
             LoadStatus::Missing | LoadStatus::Unreadable => return Vec::new(),
@@ -396,10 +396,10 @@ impl LibraryStore {
             // reset and saved before `pruneOrphans` existed: the books are only
             // hidden and can still be recovered by hand. Record that, so they
             // are kept even once new books are added.
-            eprintln!("library: keeping book files of an empty library (it may have been reset)");
+            log::warn!("library: keeping book files of an empty library (it may have been reset)");
             self.data.prune_orphans = false;
             if let Err(err) = self.save() {
-                eprintln!("library: cannot save library.json: {err}");
+                log::error!("library: cannot save library.json: {err}");
             }
             return Vec::new();
         }
@@ -416,14 +416,14 @@ impl LibraryStore {
             }
             match fs::remove_file(&path) {
                 Ok(()) => {
-                    eprintln!("library: removed orphaned file {}", path.display());
+                    log::info!("library: removed orphaned file {}", path.display());
                     removed.push(path);
                 }
-                Err(err) => eprintln!("library: cannot remove {}: {err}", path.display()),
+                Err(err) => log::warn!("library: cannot remove {}: {err}", path.display()),
             }
         }
         if !removed.is_empty() {
-            eprintln!("library: removed {} orphaned file(s)", removed.len());
+            log::info!("library: removed {} orphaned file(s)", removed.len());
         }
         removed
     }

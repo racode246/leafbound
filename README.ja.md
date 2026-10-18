@@ -120,6 +120,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --test embedding_model -- --igno
 | `annotations\` | ハイライトとメモ(本ごとに 1 ファイル) |
 | `assistant.sqlite` | AI に質問: 本文・ハイライト・会話のベクトルと会話履歴 |
 | `models\` | 検索用モデル (「AI に質問」の初回利用時にダウンロード) |
+| `logs\` | ログファイル (`leafbound.log`、1 MB で切り替え、直近 4 本を保持)。不具合報告に添付してください |
 
 ライブラリから本を削除すると、コピー、メモ、「AI に質問」がその本について保存したデータも削除されます。元のファイルには触れません。API キーはこのフォルダではなく Windows 資格情報マネージャー、または macOS のキーチェーンにあります。
 
