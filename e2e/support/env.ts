@@ -2,7 +2,7 @@
 // .claude/scripts/wt-new.ps1, the slot number in .wt.json shifts all of them so
 // worktrees can run the suites at the same time.
 import { existsSync, readFileSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 export const root = resolve(import.meta.dirname, '..', '..')
@@ -37,15 +37,3 @@ export const MODEL_DIR_NAME = 'multilingual-e5-small'
 export const WRY_DEFAULT_ARGS = '--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection'
 
 export const fixtures = join(root, 'e2e', 'fixtures')
-
-/** Where Edge installs itself on each OS; the mock project uses Playwright's Chromium without it. */
-const EDGE_PATHS = [
-  join(process.env['ProgramFiles(x86)'] ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-  join(process.env.ProgramFiles ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-  join(process.env.LOCALAPPDATA ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  join(homedir(), 'Applications', 'Microsoft Edge.app', 'Contents', 'MacOS', 'Microsoft Edge'),
-  '/opt/microsoft/msedge/msedge'
-]
-
-export const edgeInstalled = EDGE_PATHS.some((p) => existsSync(p))

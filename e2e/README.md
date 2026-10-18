@@ -6,7 +6,7 @@ Playwright Test, in four layers with the rest of the test suite:
 |---|---|---|---|
 | Rust unit/integration | `cargo test` | storage, retrieval, prompts, SSE | CI |
 | Frontend unit | Vitest (`npm test`) | pure TypeScript (chunking, i18n dictionaries) | CI |
-| **mock** | Playwright + installed Edge (Playwright's Chromium without it) with a Windows user agent | UI behaviour against the in-memory mock backend (`src/lib/mockApi.ts`) | CI |
+| **mock** | Playwright's Chromium with a Windows user agent (`npx playwright install chromium` once) | UI behaviour against the in-memory mock backend (`src/lib/mockApi.ts`) | CI |
 | **webkit** | Playwright's WebKit with a macOS user agent | The book iframe on WKWebView's engine: keys, selection (`npx playwright install webkit` once) | local |
 | **app** | Playwright over WebView2 CDP | the real app: import, persistence across restarts, Ask AI wiring with a fake LLM, API keys, the Content Security Policy | CI |
 | **live** | Playwright, real LLM key | answer quality; run locally only, when working on a related issue | local |
@@ -15,7 +15,7 @@ Playwright Test, in four layers with the rest of the test suite:
 
 ```bash
 npm run e2e          # mock, then app
-npm run e2e:mock     # starts Vite on its own port, runs headless Edge (or Chromium: `npx playwright install chromium` once)
+npm run e2e:mock     # starts Vite on its own port, runs headless Chromium
 npm run e2e:webkit   # the same mock build in WebKit, as on macOS
 npm run e2e:app      # builds the app once (debug, E2E identifier, hidden window), then runs the tests one at a time
 npm run e2e:live     # local only; needs an API key stored in the E2E app
