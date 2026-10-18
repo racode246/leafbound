@@ -36,13 +36,14 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 - Opens EPUB 2 and EPUB 3 files. Books are copied into a local library; your original files are never modified.
 - Remembers your reading position per book and resumes there.
 - Jump to a page number (Ctrl+G) or drag the progress bar to move through the book. Page numbers are fixed-size text chunks, so they don't change with font or layout.
+- Back to where you were: after jumping through the table of contents, search, highlights, an Ask AI citation or a page number, one click (or Alt+←) returns to the page you were reading.
 - Categories for organizing the library. A book can belong to any number of categories.
 - Cover grid or list view, search by title or author, and sorting by recently read, date added, title or author.
 - Paged (horizontal) or continuous scrolling (vertical) reading.
 - Single page, automatic or forced two-page spread.
 - Font family (presets or any installed font), font size and line spacing.
 - Light, sepia and dark color schemes.
-- Table of contents, full-text search (Ctrl+F) and highlights in four colors with notes.
+- Table of contents, full-text search (Ctrl+F) and highlights in four colors with notes. A flat table of contents (common in books converted from Kindle formats) is nested by its heading numbers, such as `Part 1` > `Chapter 14` > `14.2` > `14.2.1`.
 - Drag and drop EPUB files onto the window, or open them from Explorer through the `.epub` file association. Leafbound runs as a single instance.
 - Interface in English and Japanese. The system language is used by default.
 - Vertical Japanese text (`writing-mode: vertical-rl`) is rendered exactly as the publisher specified.
@@ -73,6 +74,7 @@ Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in
 | `←` `PageUp` | Previous page |
 | `Ctrl+F` (macOS: `⌘F`) | Search in the book |
 | `Ctrl+G` (macOS: `⌘G`) | Go to page |
+| `Alt+←` (macOS: `⌘[`) | Back to where you were before a jump |
 | `Ctrl+=` / `Ctrl+-` (macOS: `⌘=` / `⌘-`) | Font size larger / smaller |
 | `Ctrl+0` (macOS: `⌘0`) | Default font size |
 | `Esc` | Close the open panel |
