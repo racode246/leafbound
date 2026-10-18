@@ -9,6 +9,12 @@ use crate::{AppState, PendingOpen};
 
 type Store<'a> = State<'a, AppState>;
 
+// Every command that touches the disk (library.json, annotation files, stored
+// books) is `async`: Tauri runs non-async commands on the main thread, where a
+// blocking write would stall the webview. These bodies hold the store lock only
+// while they run synchronously, never across an `.await` (std's `MutexGuard` is
+// `!Send`, so the compiler rejects that).
+
 fn lock<'a>(state: &'a Store<'a>) -> std::sync::MutexGuard<'a, crate::library::LibraryStore> {
     state
         .0
@@ -125,7 +131,7 @@ pub async fn read_book(state: Store<'_>, id: String) -> Result<Response, String>
 }
 
 #[tauri::command]
-pub fn save_progress(
+pub async fn save_progress(
     state: Store<'_>,
     id: String,
     cfi: String,
@@ -135,7 +141,7 @@ pub fn save_progress(
 }
 
 #[tauri::command]
-pub fn set_book_categories(
+pub async fn set_book_categories(
     state: Store<'_>,
     id: String,
     categories: Vec<String>,
@@ -144,7 +150,7 @@ pub fn set_book_categories(
 }
 
 #[tauri::command]
-pub fn delete_book(
+pub async fn delete_book(
     state: Store<'_>,
     assistant: State<'_, AssistantState>,
     id: String,
@@ -155,32 +161,36 @@ pub fn delete_book(
 }
 
 #[tauri::command]
-pub fn add_category(state: Store<'_>, name: String) -> Result<Vec<String>, String> {
+pub async fn add_category(state: Store<'_>, name: String) -> Result<Vec<String>, String> {
     lock(&state).add_category(&name)
 }
 
 #[tauri::command]
-pub fn rename_category(state: Store<'_>, from: String, to: String) -> Result<Library, String> {
+pub async fn rename_category(
+    state: Store<'_>,
+    from: String,
+    to: String,
+) -> Result<Library, String> {
     lock(&state).rename_category(&from, &to)
 }
 
 #[tauri::command]
-pub fn remove_category(state: Store<'_>, name: String) -> Result<Library, String> {
+pub async fn remove_category(state: Store<'_>, name: String) -> Result<Library, String> {
     lock(&state).remove_category(&name)
 }
 
 #[tauri::command]
-pub fn save_settings(state: Store<'_>, settings: Settings) -> Result<Settings, String> {
+pub async fn save_settings(state: Store<'_>, settings: Settings) -> Result<Settings, String> {
     lock(&state).save_settings(settings)
 }
 
 #[tauri::command]
-pub fn get_annotations(state: Store<'_>, id: String) -> Result<Vec<Annotation>, String> {
+pub async fn get_annotations(state: Store<'_>, id: String) -> Result<Vec<Annotation>, String> {
     lock(&state).load_annotations(&id)
 }
 
 #[tauri::command]
-pub fn save_annotations(
+pub async fn save_annotations(
     state: Store<'_>,
     id: String,
     annotations: Vec<Annotation>,
