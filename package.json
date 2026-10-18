@@ -41,5 +41,8 @@
     "lucide-react": "1.59.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "^0.8.15"
   }
 }
