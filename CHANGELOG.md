@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/racode246/leafbound/compare/v0.4.0...v0.4.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **assistant:** ignore the Enter that confirms an IME conversion on macOS ([#55](https://github.com/racode246/leafbound/issues/55)) ([7a35a4b](https://github.com/racode246/leafbound/commit/7a35a4baa10544c3671b032c3eb3d87c437c935f)), closes [#53](https://github.com/racode246/leafbound/issues/53)
+
 ## [0.4.0](https://github.com/racode246/leafbound/compare/v0.3.1...v0.4.0) (2026-10-18)
 
 
