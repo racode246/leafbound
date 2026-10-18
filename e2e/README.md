@@ -28,7 +28,7 @@ Both suites run headless; add `-- --headed` to watch (for the app this builds a 
 - The app is built with its own identifier (`dev.leafbound.e2e`): separate data folder, single-instance lock, WebView2 profile and Credential Manager entries. The tests check that the installed app's keys are untouched.
 - WebView2's debugging port is set through the window's `additionalBrowserArgs` in the E2E build config.
 - Each test seeds a fresh data folder (`support/seed.ts`), launches the app with the test book, and removes everything afterwards. `app.relaunch()` restarts on the same data.
-- The identifier is compiled in, so app tests run with one worker. Worktrees made by `.claude/scripts/wt-new.ps1` get their own identifier and ports from `.wt.json`, so several worktrees can run the suites at once.
+- The identifier is compiled in, so app tests run with one worker. A worktree with a `.wt.json` at its root (`{ "slot": N }`, N = 1–9, untracked) gets its own identifier (`dev.leafbound.e2e.wtN`) and ports, so several worktrees can run the suites at once.
 - The E2E build checks for updates at a fake update server on a fixed port per slot (`support/fake-updates.ts`), with http allowed and a test public key (`fixtures/updater/test-key.pub`) instead of the release key. It only ever serves updates that must not install.
 - Ask AI talks to a fake OpenAI-compatible server (`support/fake-llm.ts`); the real embedding model is copied in from `E2E_MODEL_DIR` or the installed app, or downloaded on first use.
 
