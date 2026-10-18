@@ -2,14 +2,15 @@ name: Release
 
 # On every push to main, release-please opens or updates a release PR (version
 # bump + CHANGELOG from Conventional Commits). Merging that PR creates the tag
-# and a *draft* GitHub Release; the build job below then attaches the Windows
-# installers. Publishing the draft is done by hand.
+# and a *draft* GitHub Release; the jobs below then build the Windows installer and the
+# macOS (Apple Silicon) disk image, and attach them with one updater latest.json that
+# covers both. Publishing the draft is done by hand.
 #
 # The build runs in this workflow (not on the tag push) because tags created
 # with GITHUB_TOKEN do not trigger other workflows.
 #
 # Running the workflow manually builds the installers (and the updater's latest.json and
-# .sig files) as artifacts only. The build job uses the `release` environment, so manual
+# .sig files) as artifacts only. The build jobs use the `release` environment, so manual
 # runs work from main only.
 on:
   push:
@@ -49,7 +50,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-  build:
+  build-windows:
     needs: release-please
     # always(): still run for workflow_dispatch, where release-please is skipped.
     if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
@@ -60,6 +61,8 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     env:
       TAG: ${{ needs.release-please.outputs.tag_name }}
       # Updater public key (minisign key ID 3541035D1389828D), the pair of the signing key.
@@ -129,14 +132,9 @@ jobs:
             if (-not (Test-Path $f)) { throw "missing $f" }
             Copy-Item $f dist-release/
           }
-          # Builds are not code-signed yet; checksums let people verify downloads.
-          Get-ChildItem dist-release | ForEach-Object {
-            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
-          } | Set-Content -Encoding ascii dist-release/SHA256SUMS.txt
-          Get-Content dist-release/SHA256SUMS.txt
 
-      # latest.json for tauri-plugin-updater: the NSIS installer is the update package.
-      # Its URL resolves once the draft is published (drafts are never "latest").
+      # The Windows part of latest.json (the publish job merges it with the macOS one): the
+      # NSIS installer is the update package.
       - name: Updater manifest
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -146,11 +144,8 @@ jobs:
           if (-not (Test-Path $sig)) { throw "missing $sig" }
           Copy-Item $sig dist-release/
           $url = "https://github.com/${env:GITHUB_REPOSITORY}/releases/download/v${env:VERSION}/Leafbound_${env:VERSION}_x64-setup.exe"
-          node scripts/updater-artifacts.mjs manifest --version $env:VERSION --installer "dist-release/Leafbound_${env:VERSION}_x64-setup.exe" --url $url --changelog CHANGELOG.md --out dist-release/latest.json
+          node scripts/updater-artifacts.mjs manifest --platform windows-x86_64 --version $env:VERSION --installer "dist-release/Leafbound_${env:VERSION}_x64-setup.exe" --url $url --changelog CHANGELOG.md --out dist-release/latest-windows-x86_64.json
           if ($LASTEXITCODE -ne 0) { throw 'latest.json generation failed' }
-          # Same check as the updater: fails if the secret is not the pair of UPDATER_PUBKEY.
-          node scripts/updater-artifacts.mjs verify --manifest dist-release/latest.json --dir dist-release --version $env:VERSION --url $url
-          if ($LASTEXITCODE -ne 0) { throw 'updater signature check failed' }
 
       - name: Attest build provenance
         if: env.TAG != ''
@@ -165,14 +160,160 @@ jobs:
           path: dist-release/
           if-no-files-found: error
 
+  build-macos:
+    needs: release-please
+    if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
+    # Apple Silicon (aarch64-apple-darwin) only. Not code-signed or notarized.
+    runs-on: macos-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      UPDATER_PUBKEY: dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NDEwMzVEMTM4OTgyOEQKUldTTmdva1RYUU5CTmVFZjdCY25lbms4dTFBSjdlVGpjYlVMYXlMcFo0c28wRmloLytWVExkVlUK
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
+
+      - name: Check version
+        id: version
+        run: |
+          pkg=$(node -p 'require("./package.json").version')
+          cargo=$(sed -nE 's/^version = "(.+)"/\1/p' src-tauri/Cargo.toml | head -n 1)
+          if [ "$pkg" != "$cargo" ]; then echo "version mismatch: package.json $pkg, Cargo.toml $cargo"; exit 1; fi
+          if [ -n "$TAG" ] && [ "$TAG" != "v$pkg" ]; then echo "tag $TAG does not match version $pkg"; exit 1; fi
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+
+      # No caches, as in build-windows.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install npm packages
+        run: npm ci
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+
+      # tauri.macos.conf.json selects the app and dmg bundles; with updater artifacts on, the
+      # app is also packed as Leafbound.app.tar.gz (the update package) with its .sig.
+      - name: Build app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then echo 'TAURI_SIGNING_PRIVATE_KEY is not set'; exit 1; fi
+          config="$RUNNER_TEMP/updater.conf.json"
+          node -e 'console.log(JSON.stringify({ bundle: { createUpdaterArtifacts: true }, plugins: { updater: { pubkey: process.env.UPDATER_PUBKEY } } }))' > "$config"
+          npx tauri build --target aarch64-apple-darwin --config "$config" -- --locked
+
+      # The .app.tar.gz gets the version in its name, like the other release files; the
+      # signature covers the contents, not the name.
+      - name: Collect app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          bundle=src-tauri/target/aarch64-apple-darwin/release/bundle
+          mkdir dist-release
+          cp "$bundle/dmg/Leafbound_${VERSION}_aarch64.dmg" dist-release/
+          cp "$bundle/macos/Leafbound.app.tar.gz" "dist-release/Leafbound_${VERSION}_aarch64.app.tar.gz"
+          cp "$bundle/macos/Leafbound.app.tar.gz.sig" "dist-release/Leafbound_${VERSION}_aarch64.app.tar.gz.sig"
+
+      - name: Updater manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          file="Leafbound_${VERSION}_aarch64.app.tar.gz"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/$file"
+          node scripts/updater-artifacts.mjs manifest --platform darwin-aarch64 --version "$VERSION" --installer "dist-release/$file" --url "$url" --changelog CHANGELOG.md --out dist-release/latest-darwin-aarch64.json
+
+      - name: Attest build provenance
+        if: env.TAG != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist-release/*.dmg
+            dist-release/*.app.tar.gz
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: leafbound-${{ steps.version.outputs.version }}-macos
+          path: dist-release/
+          if-no-files-found: error
+
+  # One latest.json for both platforms, checksums of every file, and the upload to the draft.
+  publish:
+    needs: [release-please, build-windows, build-macos]
+    if: always() && needs.build-windows.result == 'success' && needs.build-macos.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.build-windows.outputs.version }}
+      UPDATER_PUBKEY: dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1NDEwMzVEMTM4OTgyOEQKUldTTmdva1RYUU5CTmVFZjdCY25lbms4dTFBSjdlVGpjYlVMYXlMcFo0c28wRmloLytWVExkVlUK
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: leafbound-${{ env.VERSION }}-*
+          path: dist-release
+          merge-multiple: true
+
+      # Same check as the updater, per platform: fails if the signing secret is not the pair
+      # of UPDATER_PUBKEY. Its URLs resolve once the draft is published (drafts are never
+      # "latest").
+      - name: Updater manifest
+        run: |
+          if [ "${{ needs.build-macos.outputs.version }}" != "$VERSION" ]; then echo 'the builds are for different versions'; exit 1; fi
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          cd dist-release
+          node ../scripts/updater-artifacts.mjs merge --out latest.json latest-windows-x86_64.json latest-darwin-aarch64.json
+          rm latest-windows-x86_64.json latest-darwin-aarch64.json
+          cd ..
+          node scripts/updater-artifacts.mjs verify --manifest dist-release/latest.json --dir dist-release --version "$VERSION" --platform windows-x86_64 --url "$base/Leafbound_${VERSION}_x64-setup.exe"
+          node scripts/updater-artifacts.mjs verify --manifest dist-release/latest.json --dir dist-release --version "$VERSION" --platform darwin-aarch64 --url "$base/Leafbound_${VERSION}_aarch64.app.tar.gz"
+
+      # Builds are not code-signed yet; checksums let people verify downloads.
+      - name: Checksums
+        working-directory: dist-release
+        run: |
+          sha256sum *.exe *.dmg *.app.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: leafbound-${{ env.VERSION }}
+          path: dist-release/
+          if-no-files-found: error
+
       - name: Upload to the draft release
         if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $release = gh release view $env:TAG --json isDraft | ConvertFrom-Json
-          if (-not $release) { throw "release $env:TAG not found" }
-          if (-not $release.isDraft) { throw "release $env:TAG is already published; not replacing its files" }
-          $assets = Get-ChildItem dist-release | ForEach-Object { $_.FullName }
-          gh release upload $env:TAG @assets --clobber
-          if ($LASTEXITCODE -ne 0) { throw "upload failed" }
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$draft" != "true" ]; then echo "release $TAG is not a draft (or not found); not replacing its files"; exit 1; fi
+          gh release upload "$TAG" dist-release/* --repo "$GITHUB_REPOSITORY" --clobber

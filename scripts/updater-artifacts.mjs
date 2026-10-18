@@ -1,13 +1,19 @@
 // Updater artifacts for the release workflow (.github/workflows/release.yml).
 //
-//   node scripts/updater-artifacts.mjs manifest --version X.Y.Z --installer <setup.exe> \
-//     --url <download URL of the installer> [--changelog CHANGELOG.md] --out <latest.json>
+//   node scripts/updater-artifacts.mjs manifest --version X.Y.Z --installer <update package> \
+//     --url <download URL of the package> [--platform <target>] [--changelog CHANGELOG.md] \
+//     --out <latest.json>
+//   node scripts/updater-artifacts.mjs merge --out <latest.json> <manifest> <manifest>...
 //   node scripts/updater-artifacts.mjs verify --manifest <latest.json> --dir <folder> \
-//     --version X.Y.Z --url <download URL of the installer> [--pubkey <base64>]
+//     --version X.Y.Z --url <download URL of the package> [--platform <target>] [--pubkey <base64>]
 //
-// `manifest` writes the static JSON read by tauri-plugin-updater, with the signature
+// `manifest` writes the static JSON read by tauri-plugin-updater for one platform
+// (`windows-x86_64` by default, `darwin-aarch64` for the .app.tar.gz), with the signature
 // taken verbatim from `<installer>.sig` (written by `tauri build` when
 // bundle.createUpdaterArtifacts is on).
+//
+// `merge` combines the manifests built on each OS into the one latest.json of a release.
+// They must be for the same version and for different platforms.
 //
 // `verify` checks latest.json against the files in <folder> and verifies the minisign
 // signature the way the updater does (minisign-verify: Ed25519 over the BLAKE2b-512 of
@@ -21,7 +27,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
-const PLATFORM = 'windows-x86_64'
+const DEFAULT_PLATFORM = 'windows-x86_64'
 
 function fail(message) {
   console.error(`error: ${message}`)
@@ -59,8 +65,28 @@ function manifest(values) {
     version: values.version,
     notes: values.changelog ? changelogNotes(values.changelog, values.version) : '',
     pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    platforms: { [PLATFORM]: { signature, url: values.url } }
+    platforms: { [values.platform || DEFAULT_PLATFORM]: { signature, url: values.url } }
   }
+  writeFileSync(values.out, `${JSON.stringify(json, null, 2)}\n`)
+  console.log(readFileSync(values.out, 'utf8'))
+}
+
+function merge(values, files) {
+  required(values, 'out')
+  if (files.length === 0) fail('no manifests to merge')
+  const manifests = files.map((file) => JSON.parse(readFileSync(file, 'utf8')))
+  const platforms = {}
+  for (const [i, json] of manifests.entries()) {
+    if (json.version !== manifests[0].version) {
+      fail(`${files[i]} is for version ${json.version}, ${files[0]} for ${manifests[0].version}`)
+    }
+    for (const [platform, entry] of Object.entries(json.platforms ?? {})) {
+      if (platforms[platform]) fail(`platforms["${platform}"] is in more than one manifest`)
+      platforms[platform] = entry
+    }
+  }
+  const pubDates = manifests.map((json) => json.pub_date).sort()
+  const json = { ...manifests[0], pub_date: pubDates[pubDates.length - 1], platforms }
   writeFileSync(values.out, `${JSON.stringify(json, null, 2)}\n`)
   console.log(readFileSync(values.out, 'utf8'))
 }
@@ -141,8 +167,9 @@ function verifyManifest(values) {
   if (json.version !== values.version) fail(`version ${json.version}, expected ${values.version}`)
   if (Number.isNaN(Date.parse(json.pub_date))) fail(`bad pub_date ${json.pub_date}`)
   if (typeof json.notes !== 'string') fail('notes is not a string')
-  const entry = json.platforms?.[PLATFORM]
-  if (!entry) fail(`no platforms["${PLATFORM}"]`)
+  const platform = values.platform || DEFAULT_PLATFORM
+  const entry = json.platforms?.[platform]
+  if (!entry) fail(`no platforms["${platform}"]`)
   if (entry.url !== values.url) fail(`url ${entry.url}, expected ${values.url}`)
 
   const installer = join(values.dir, basename(new URL(entry.url).pathname))
@@ -153,9 +180,11 @@ function verifyManifest(values) {
 }
 
 const [command, ...rest] = process.argv.slice(2)
-const { values } = parseArgs({
+const { values, positionals } = parseArgs({
   args: rest,
+  allowPositionals: command === 'merge',
   options: {
+    platform: { type: 'string' },
     version: { type: 'string' },
     installer: { type: 'string' },
     url: { type: 'string' },
@@ -167,5 +196,6 @@ const { values } = parseArgs({
   }
 })
 if (command === 'manifest') manifest(values)
+else if (command === 'merge') merge(values, positionals)
 else if (command === 'verify') verifyManifest(values)
-else fail('usage: updater-artifacts.mjs manifest|verify [options]')
+else fail('usage: updater-artifacts.mjs manifest|merge|verify [options]')

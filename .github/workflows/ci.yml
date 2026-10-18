@@ -23,7 +23,8 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Leafbound is Windows-only (WebView2, Credential Manager), so every job runs on Windows.
+# Most jobs run on Windows: the E2E suites drive WebView2 over CDP. check-macos builds the
+# Rust side for macOS (Keychain, Finder's open events), which Windows never compiles.
 jobs:
   check:
     runs-on: windows-latest
@@ -115,6 +116,54 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
 
       # The embedding model test is #[ignore]d (it downloads ~135 MB).
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+
+  check-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Install npm packages
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      # tauri::generate_context! embeds dist/.
+      - name: Build frontend
+        run: npm run build
+
+      - name: Rust toolchain
+        run: |
+          rustup component add clippy
+          rustc -vV
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/ort.pyke.io
+          key: ort-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ort-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked

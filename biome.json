@@ -9,6 +9,7 @@
     "includes": [
       "src/**",
       "e2e/**",
+      "scripts/**/*.ts",
       "*.config.ts",
       "package.json",
       "tsconfig.json",
