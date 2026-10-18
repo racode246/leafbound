@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/racode246/leafbound/compare/v0.4.1...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* **log:** write a rotating log file ([#58](https://github.com/racode246/leafbound/issues/58)) ([61da6b3](https://github.com/racode246/leafbound/commit/61da6b3b315c73727d58454d95c6b3c0708ec0fa))
+* **window:** restore window position and size on launch ([#61](https://github.com/racode246/leafbound/issues/61)) ([75839dc](https://github.com/racode246/leafbound/commit/75839dc061eafa2933c077799dd55c90137a5ba1))
+
+
+### Bug Fixes
+
+* **library:** fall back to defaults for unknown setting values ([#59](https://github.com/racode246/leafbound/issues/59)) ([58519c2](https://github.com/racode246/leafbound/commit/58519c23ea3cfa5ae949091c1693a68850d83a42))
+
+
+### Performance Improvements
+
+* **ipc:** run blocking commands off the main thread ([#57](https://github.com/racode246/leafbound/issues/57)) ([3e7b4a9](https://github.com/racode246/leafbound/commit/3e7b4a9df8797bd4f771cceecb9af05dce26547f))
+
 ## [0.4.1](https://github.com/racode246/leafbound/compare/v0.4.0...v0.4.1) (2026-10-18)
 
 
