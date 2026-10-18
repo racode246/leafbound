@@ -9,6 +9,7 @@
         "height": 800,
         "minWidth": 720,
         "minHeight": 480,
+        "center": true,
         "dragDropEnabled": false,
         "decorations": true,
         "titleBarStyle": "Overlay",

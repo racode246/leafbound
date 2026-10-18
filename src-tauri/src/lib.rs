@@ -5,10 +5,11 @@ mod covers_protocol;
 pub mod library;
 mod logging;
 pub mod updates;
+mod window_placement;
 
 use std::sync::Mutex;
 
-use tauri::{Emitter, Manager};
+use tauri::{webview::PageLoadEvent, Emitter, Manager};
 
 use library::LibraryStore;
 
@@ -50,6 +51,12 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
+        // Restores the main window as it is created and saves it on exit.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(window_placement::STATE_FLAGS)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .register_uri_scheme_protocol(covers_protocol::SCHEME, covers_protocol::handle)
@@ -58,6 +65,11 @@ pub fn run() {
         .manage(PendingOpen(Mutex::new(Some(epub_args(
             std::env::args().skip(1),
         )))))
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" && payload.event() == PageLoadEvent::Finished {
+                window_placement::keep_on_screen_once(&webview.window());
+            }
+        })
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             app.handle().plugin(logging::plugin(&data_dir))?;
