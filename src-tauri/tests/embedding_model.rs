@@ -15,8 +15,9 @@ fn model_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("LEAFBOUND_MODEL_DIR") {
         return PathBuf::from(dir);
     }
-    let appdata = std::env::var("APPDATA").expect("APPDATA");
-    PathBuf::from(appdata)
+    // Tauri's app data directory: %APPDATA% on Windows, ~/Library/Application Support on macOS.
+    dirs::data_dir()
+        .expect("no data directory")
         .join("dev.leafbound.app")
         .join("models")
         .join("multilingual-e5-small")

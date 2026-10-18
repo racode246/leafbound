@@ -53,5 +53,6 @@ panic = "abort"
 strip = true
 
 [dev-dependencies]
+dirs = "7"
 zip = { version = "3", default-features = false, features = ["deflate"] }
 tokio = { version = "1", features = ["rt"] }

@@ -168,7 +168,7 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
 
-  # Browser build against the mock backend, in the runner's Edge (no browser download).
+  # Browser build against the mock backend, in Playwright's Chromium (cached per Playwright version).
   e2e-mock:
     runs-on: windows-latest
     steps:
@@ -190,6 +190,22 @@ jobs:
         run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      - name: Playwright version
+        id: playwright
+        run: |
+          $version = node -p "require('./node_modules/@playwright/test/package.json').version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      # Each Playwright version pins its own Chromium build.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # Headless only, so the shell is enough; does nothing when the cache has it.
+      - name: Install Chromium
+        run: npx playwright install chromium --only-shell
 
       - name: E2E (mock)
         run: npm run e2e:mock
