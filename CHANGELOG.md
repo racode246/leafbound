@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/racode246/leafbound/compare/v0.5.0...v0.6.0) (2026-10-18)
+
+
+### Features
+
+* **reader:** change the font size with Ctrl+= / Ctrl+- / Ctrl+0 ([#65](https://github.com/racode246/leafbound/issues/65)) ([dadb2c4](https://github.com/racode246/leafbound/commit/dadb2c48275ca46833947834e22de1627d04bcda))
+* **reader:** infer TOC nesting from heading numbers when the TOC is flat ([#68](https://github.com/racode246/leafbound/issues/68)) ([a0a7fea](https://github.com/racode246/leafbound/commit/a0a7feaff547c9766e620602d4e7bffd3aa32eae)), closes [#66](https://github.com/racode246/leafbound/issues/66)
+* **reader:** return to the reading position after a jump ([#67](https://github.com/racode246/leafbound/issues/67)) ([40d0cac](https://github.com/racode246/leafbound/commit/40d0cac0c908946e8074e8289ae92b2741a3d012)), closes [#63](https://github.com/racode246/leafbound/issues/63)
+
 ## [0.5.0](https://github.com/racode246/leafbound/compare/v0.4.1...v0.5.0) (2026-10-18)
 
 
