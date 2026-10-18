@@ -118,6 +118,11 @@ export class Reader {
     return this.page.getByLabel('Reading position')
   }
 
+  /** The title bar button that returns to where the reader was before the last jump. */
+  get jumpBack(): Locator {
+    return this.barButton('Back to where you were')
+  }
+
   async pageNumber(): Promise<number> {
     return Number(await this.pageBox.inputValue())
   }

@@ -8,6 +8,7 @@
 import type {
   Annotation,
   ApiKeyStatus,
+  AssistantSource,
   Book,
   Exchange,
   Library,
@@ -56,6 +57,8 @@ const annotations = new Map<string, Annotation[]>()
 // Assistant: no model or LLM in the browser; answers are canned so the UI can be exercised.
 const keys: ApiKeyStatus = { anthropic: false, openai: false }
 const indexed = new Map<string, Set<number>>()
+// The first passage of the last section indexed, which canned answers cite as [#1].
+const cited = new Map<string, { section: number; source: AssistantSource }>()
 const exchanges = new Map<string, Exchange[]>()
 let modelLoaded = false
 const cancelled = new Set<string>()
@@ -220,8 +223,14 @@ export const mockApi: LeafboundApi = {
     await sleep(200)
     modelLoaded = true
   },
-  async assistantIndexSection(bookId, section) {
+  async assistantIndexSection(bookId, section, _href, _chapter, chunks) {
     await sleep(30)
+    const first = chunks[0]
+    if (first && section >= (cited.get(bookId)?.section ?? -1))
+      cited.set(bookId, {
+        section,
+        source: { label: '#1', kind: 'passage', cfi: first.cfi, excerpt: first.text.slice(0, 80) }
+      })
     const set = indexed.get(bookId) ?? new Set<number>()
     set.add(section)
     indexed.set(bookId, set)
@@ -247,9 +256,11 @@ export const mockApi: LeafboundApi = {
     onEvent({ type: 'stage', stage: 'searching' })
     await sleep(200)
     onEvent({ type: 'stage', stage: 'generating' })
+    const source = cited.get(request.bookId)?.source
     const answer =
       `(mock) 「${request.question}」への回答例です。現在の章の本文 ${request.chapterText.length} 文字を参照しました。` +
-      'ブラウザ版では LLM は呼ばれません。'
+      'ブラウザ版では LLM は呼ばれません。' +
+      (source ? ` [${source.label}]` : '')
     for (const piece of answer.match(/.{1,6}/gsu) ?? []) {
       if (cancelled.delete(request.requestId)) throw 'CANCELLED'
       await sleep(40)
@@ -260,7 +271,7 @@ export const mockApi: LeafboundApi = {
       sessionId: request.sessionId,
       question: request.question,
       answer,
-      sources: [],
+      sources: source ? [clone(source)] : [],
       createdAt: now()
     }
     exchanges.set(request.bookId, [...(exchanges.get(request.bookId) ?? []), exchange])

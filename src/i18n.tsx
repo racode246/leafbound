@@ -56,6 +56,8 @@ const ja = {
   'picker.create': '作成',
 
   'reader.backTitle': 'ライブラリへ戻る',
+  'reader.jumpBack': '元の位置に戻る',
+  'reader.jumpBackTip': '元の位置に戻る ({shortcut})',
   'reader.toc': '目次',
   'reader.display': 'Aa 表示',
   'reader.displayTip': '表示',
@@ -265,6 +267,8 @@ const en: Record<Key, string> = {
   'picker.create': 'Create',
 
   'reader.backTitle': 'Back to library',
+  'reader.jumpBack': 'Back to where you were',
+  'reader.jumpBackTip': 'Back to where you were ({shortcut})',
   'reader.toc': 'Contents',
   'reader.display': 'Aa Display',
   'reader.displayTip': 'Display',

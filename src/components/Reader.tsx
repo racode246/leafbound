@@ -6,7 +6,8 @@ import {
   Highlighter,
   Search,
   TableOfContents,
-  Type
+  Type,
+  Undo2
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import ePub, {
@@ -21,6 +22,7 @@ import { api } from '../lib/api'
 import { fontSizeForKey } from '../lib/fontSizeKeys'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
+import { isJumpBackKey, jumpBackShortcut, useJumpBack } from '../lib/jumpBack'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
 import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
 import {
@@ -146,6 +148,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   // "page N-1". Keep showing the requested page until the reader moves away from where it landed.
   const jumpRef = useRef<{ page: number; cfi: string | null } | null>(null)
   const pageInputRef = useRef<HTMLInputElement>(null)
+  // Where the reader was before the last jump, for "Back to where you were" (Alt+← / ⌘[).
+  const jumpBack = useJumpBack(book.id)
+  // handleKey is registered once with epub.js, so it calls Back through a ref.
+  const goBackRef = useRef<() => void>(() => {})
 
   // Annotations
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -387,6 +393,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         })
 
         rendition.hooks.content.register((contents: Contents) => {
+          // epub.js passes keys to handleKey from a passive listener, where preventDefault()
+          // does nothing; cancel the browser's Back for the jump-back keys here.
+          contents.document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (isJumpBackKey(e)) e.preventDefault()
+          })
           let lastWheel = 0
           contents.document.addEventListener(
             'wheel',
@@ -480,6 +491,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         if (e.key === 'Escape') (e.target as HTMLElement).blur()
         return
       }
+      if (isJumpBackKey(e)) {
+        e.preventDefault()
+        goBackRef.current()
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setPanel('search')
@@ -537,9 +553,22 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   // ---- navigation ---------------------------------------------------------
 
-  const goTo = async (target: string) => {
+  /** Keeps the reading position, with the page number shown there, for Back. */
+  const rememberPosition = () => {
+    const cfi = lastCfiRef.current
+    const b = bookRef.current
+    if (!cfi) return
+    const jump = jumpRef.current
+    let shown: number | null = null
+    if (b && b.locations.length() > 0) shown = jump?.cfi === cfi ? jump.page : pageFromCfi(b, cfi)
+    jumpBack.remember({ cfi, page: shown })
+  }
+
+  /** Shows `target`; unless `remember` is false, Back can return to where the reader was. */
+  const goTo = async (target: string, remember = true) => {
     const r = renditionRef.current
     if (!r) return
+    if (remember) rememberPosition()
     try {
       await r.display(target)
       await reportRef.current?.()
@@ -553,12 +582,25 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     if (!b) return
     const cfi = b.locations.cfiFromLocation(target - 1) as unknown
     if (typeof cfi !== 'string') return
+    rememberPosition()
     jumpRef.current = { page: target, cfi: null }
     setPage(target)
-    await goTo(cfi)
+    await goTo(cfi, false)
     // Navigation failed or never reported a location: don't pin the next one.
     if (jumpRef.current?.cfi === null) jumpRef.current = null
   }
+
+  /** Returns to where the reader was before the last jump and empties the slot. */
+  const goBack = async () => {
+    const origin = jumpBack.take()
+    if (!origin) return
+    // Show the same page number as before, even where it was pinned by Go to page.
+    jumpRef.current = origin.page === null ? null : { page: origin.page, cfi: null }
+    if (origin.page !== null) setPage(origin.page)
+    await goTo(origin.cfi, false)
+    if (jumpRef.current?.cfi === null) jumpRef.current = null
+  }
+  goBackRef.current = () => void goBack()
 
   const chapterAtPage = (target: number): string | null => {
     const b = bookRef.current
@@ -675,12 +717,23 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         fg={palette.chromeFg}
         border={palette.border}
         left={
-          <BarButton
-            icon={ArrowLeft}
-            label={t('reader.backTitle')}
-            align="start"
-            onClick={onBack}
-          />
+          <>
+            <BarButton
+              icon={ArrowLeft}
+              label={t('reader.backTitle')}
+              align="start"
+              onClick={onBack}
+            />
+            {jumpBack.origin && (
+              <BarButton
+                icon={Undo2}
+                label={t('reader.jumpBack')}
+                tip={t('reader.jumpBackTip', { shortcut: jumpBackShortcut() })}
+                align="start"
+                onClick={() => void goBack()}
+              />
+            )}
+          </>
         }
         center={
           <div className="reader-title" data-tauri-drag-region>
