@@ -19,7 +19,7 @@ import ePub, {
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
-import { shortcutLabel } from '../lib/platform'
+import { isMac, shortcutLabel } from '../lib/platform'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
 import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
 import {
@@ -322,7 +322,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           manager: flow === 'scrolled' ? 'continuous' : 'default',
           spread,
           minSpreadWidth: MIN_SPREAD_WIDTH,
-          allowScriptedContent: false
+          // WebKit (macOS) runs none of the listeners added to the book's iframe (keys, wheel,
+          // selection) unless its sandbox allows scripts. The book's own scripts still cannot
+          // run there: the iframe inherits the app's CSP, whose script-src is only 'self'.
+          allowScriptedContent: isMac
         })
         renditionRef.current = rendition
         applyReaderTheme(rendition, settingsRef.current)
