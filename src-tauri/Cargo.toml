@@ -41,6 +41,8 @@ tokio = { version = "1", features = ["fs", "io-util", "time"] }
 # the data directory, since a release build has no console on Windows or from Finder.
 log = { version = "0.4", features = ["release_max_level_info"] }
 tauri-plugin-log = "2"
+# Window position, size and maximized state, saved on exit and restored at launch.
+tauri-plugin-window-state = "2"
 
 # Keep debug builds small: line numbers for our own code, no debug info for dependencies.
 [profile.dev]
