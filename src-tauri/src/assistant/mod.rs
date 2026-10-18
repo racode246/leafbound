@@ -113,6 +113,10 @@ fn library<'a>(state: &'a State<'a, AppState>) -> MutexGuard<'a, crate::library:
     state.0.lock().unwrap_or_else(|p| p.into_inner())
 }
 
+// Commands that query SQLite or the OS credential store are `async` so they run
+// on the async runtime instead of the main thread (where non-async Tauri commands
+// execute). A Keychain prompt or a slow disk must not freeze the webview.
+
 // ---- status / setup ---------------------------------------------------------
 
 #[derive(Serialize)]
@@ -126,7 +130,10 @@ pub struct AssistantStatus {
 }
 
 #[tauri::command]
-pub fn assistant_status(state: Assistant<'_>, book_id: String) -> Result<AssistantStatus, String> {
+pub async fn assistant_status(
+    state: Assistant<'_>,
+    book_id: String,
+) -> Result<AssistantStatus, String> {
     Ok(AssistantStatus {
         model_downloaded: state.embedder.is_downloaded(),
         model_loaded: state.embedder.is_loaded(),
@@ -195,7 +202,7 @@ pub async fn assistant_index_section(
 // ---- API keys -----------------------------------------------------------------
 
 #[tauri::command]
-pub fn assistant_set_api_key(
+pub async fn assistant_set_api_key(
     state: Assistant<'_>,
     provider: String,
     key: String,
@@ -205,7 +212,7 @@ pub fn assistant_set_api_key(
 }
 
 #[tauri::command]
-pub fn assistant_delete_api_key(
+pub async fn assistant_delete_api_key(
     state: Assistant<'_>,
     provider: String,
 ) -> Result<secrets::KeyStatus, String> {
@@ -224,7 +231,7 @@ pub struct History {
 
 /// The most recent conversation about the book.
 #[tauri::command]
-pub fn assistant_history(state: Assistant<'_>, book_id: String) -> Result<History, String> {
+pub async fn assistant_history(state: Assistant<'_>, book_id: String) -> Result<History, String> {
     let db = state.db();
     let session_id = db.latest_session(&book_id)?;
     let exchanges = match &session_id {
@@ -238,7 +245,7 @@ pub fn assistant_history(state: Assistant<'_>, book_id: String) -> Result<Histor
 }
 
 #[tauri::command]
-pub fn assistant_clear_history(state: Assistant<'_>, book_id: String) -> Result<(), String> {
+pub async fn assistant_clear_history(state: Assistant<'_>, book_id: String) -> Result<(), String> {
     state.db().clear_history(&book_id)
 }
 
