@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useState } from 'react'
 import { useT } from '../i18n'
+import { isImeEnter } from '../lib/ime'
 import type { Updates } from '../lib/useUpdates'
 import { ALL_BOOKS, UNCATEGORIZED, type LanguageSetting } from '../types'
 import Icon from './Icon'
@@ -85,7 +86,7 @@ export default function Sidebar({
                 value={editing.value}
                 onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void submitRename()
+                  if (e.key === 'Enter' && !isImeEnter(e.nativeEvent)) void submitRename()
                   if (e.key === 'Escape') setEditing(null)
                 }}
                 onBlur={() => void submitRename()}

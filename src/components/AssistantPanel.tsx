@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Reac
 import { useT, type Translate } from '../i18n'
 import { api } from '../lib/api'
 import { indexBookText, type IndexControl, type IndexProgress } from '../lib/bookText'
+import { isImeEnter } from '../lib/ime'
 import { quoteText } from '../lib/quote'
 import {
   ASSISTANT_ERRORS,
@@ -256,7 +257,7 @@ export default function AssistantPanel({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (e.key === 'Enter' && !e.shiftKey && !isImeEnter(e.nativeEvent)) {
       e.preventDefault()
       void send()
     }

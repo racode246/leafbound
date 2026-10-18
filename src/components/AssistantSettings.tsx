@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
+import { isImeEnter } from '../lib/ime'
 import { isMac } from '../lib/platform'
 import {
   DEFAULT_BASE_URLS,
@@ -105,7 +106,7 @@ export default function AssistantSettingsView({
           }
           onChange={(e) => setModel(e.target.value)}
           onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
+          onKeyDown={(e) => e.key === 'Enter' && !isImeEnter(e.nativeEvent) && commit()}
           spellCheck={false}
         />
       </section>
@@ -118,7 +119,7 @@ export default function AssistantSettingsView({
           placeholder={DEFAULT_BASE_URLS[provider]}
           onChange={(e) => setBaseUrl(e.target.value)}
           onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
+          onKeyDown={(e) => e.key === 'Enter' && !isImeEnter(e.nativeEvent) && commit()}
           spellCheck={false}
         />
         <p className="muted small">{t('ai.settings.baseUrlHint')}</p>
