@@ -197,19 +197,19 @@ pub async fn assistant_index_section(
 #[tauri::command]
 pub fn assistant_set_api_key(
     state: Assistant<'_>,
-    provider: String,
+    provider: Provider,
     key: String,
 ) -> Result<secrets::KeyStatus, String> {
-    secrets::set(&state.key_service, &provider, &key)?;
+    secrets::set(&state.key_service, provider, &key)?;
     Ok(secrets::status(&state.key_service))
 }
 
 #[tauri::command]
 pub fn assistant_delete_api_key(
     state: Assistant<'_>,
-    provider: String,
+    provider: Provider,
 ) -> Result<secrets::KeyStatus, String> {
-    secrets::delete(&state.key_service, &provider)?;
+    secrets::delete(&state.key_service, provider)?;
     Ok(secrets::status(&state.key_service))
 }
 
@@ -314,8 +314,8 @@ pub async fn assistant_ask(
             lib.load_annotations(&request.book_id)?,
         )
     };
-    let provider = Provider::parse(&settings.provider)?;
-    let api_key = secrets::get(&state.key_service, provider.key_name())?;
+    let provider = settings.provider;
+    let api_key = secrets::get(&state.key_service, provider)?;
     if provider == Provider::Anthropic && api_key.is_none() {
         return Err(ERR_NO_API_KEY.into());
     }

@@ -7,21 +7,18 @@
 
 use serde::Serialize;
 
+use crate::library::Provider;
+
 /// Identifier of the released app; its keys were stored under this name before
 /// the service followed the identifier, so existing keys keep working.
 pub const APP_SERVICE: &str = "dev.leafbound.app";
 
-pub const PROVIDERS: &[&str] = &["anthropic", "openai"];
-
-fn entry(service: &str, provider: &str) -> Result<keyring::Entry, String> {
-    if !PROVIDERS.contains(&provider) {
-        return Err(format!("unknown provider: {provider}"));
-    }
+fn entry(service: &str, provider: Provider) -> Result<keyring::Entry, String> {
     keyring::Entry::new(service, &format!("llm-api-key:{provider}"))
         .map_err(|e| format!("credential store: {e}"))
 }
 
-pub fn get(service: &str, provider: &str) -> Result<Option<String>, String> {
+pub fn get(service: &str, provider: Provider) -> Result<Option<String>, String> {
     match entry(service, provider)?.get_password() {
         Ok(key) => Ok(Some(key)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -29,7 +26,7 @@ pub fn get(service: &str, provider: &str) -> Result<Option<String>, String> {
     }
 }
 
-pub fn set(service: &str, provider: &str, key: &str) -> Result<(), String> {
+pub fn set(service: &str, provider: Provider, key: &str) -> Result<(), String> {
     let key = key.trim();
     if key.is_empty() {
         return delete(service, provider);
@@ -39,7 +36,7 @@ pub fn set(service: &str, provider: &str, key: &str) -> Result<(), String> {
         .map_err(|e| format!("credential store: {e}"))
 }
 
-pub fn delete(service: &str, provider: &str) -> Result<(), String> {
+pub fn delete(service: &str, provider: Provider) -> Result<(), String> {
     match entry(service, provider)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(format!("credential store: {e}")),
@@ -55,9 +52,9 @@ pub struct KeyStatus {
 }
 
 pub fn status(service: &str) -> KeyStatus {
-    let has = |p: &str| matches!(get(service, p), Ok(Some(_)));
+    let has = |p: Provider| matches!(get(service, p), Ok(Some(_)));
     KeyStatus {
-        anthropic: has("anthropic"),
-        openai: has("openai"),
+        anthropic: has(Provider::Anthropic),
+        openai: has(Provider::OpenAi),
     }
 }
