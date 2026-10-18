@@ -18,6 +18,7 @@ import ePub, {
 } from 'epubjs'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
+import { fontSizeForKey } from '../lib/fontSizeKeys'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
@@ -115,6 +116,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const bookRef = useRef<EpubBook | null>(null)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const onSettingsRef = useRef(onSettings)
+  onSettingsRef.current = onSettings
   const reportRef = useRef<(() => Promise<void>) | null>(null)
   const lastCfiRef = useRef<string | null>(book.progress?.cfi ?? null)
   const saveTimer = useRef<number | null>(null)
@@ -401,6 +404,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             setSelection(null)
             setEditing(null)
           })
+          // epub.js forwards keys to handleKey from a passive listener, where preventDefault()
+          // does nothing; cancel the page zoom of the font size keys here.
+          contents.document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (fontSizeForKey(e, settingsRef.current.fontSize) !== null) e.preventDefault()
+          })
         })
 
         debug('display', lastCfiRef.current)
@@ -461,6 +469,12 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      const fontSize = fontSizeForKey(e, settingsRef.current.fontSize)
+      if (fontSize !== null) {
+        e.preventDefault() // not the page zoom
+        if (fontSize !== settingsRef.current.fontSize) onSettingsRef.current({ fontSize })
+        return
+      }
       const tag = (e.target as HTMLElement | null)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
         if (e.key === 'Escape') (e.target as HTMLElement).blur()

@@ -34,6 +34,11 @@ test('shortcuts work while the book has the focus', async ({ page }) => {
   await focusBook(reader)
   await page.keyboard.press('Meta+g')
   await expect(reader.pageBox).toBeFocused()
+
+  await focusBook(reader)
+  await page.keyboard.press('Meta+Equal')
+  await reader.display()
+  await expect(reader.fontSize).toHaveText('19px')
 })
 
 test('selecting text in the book shows the selection menu', async ({ page }) => {

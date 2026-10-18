@@ -210,6 +210,8 @@ export const FONT_PRESETS: FontPreset[] = [
 
 export const FONT_SIZE_MIN = 12
 export const FONT_SIZE_MAX = 36
+/** The size a new library starts with (Rust `Settings::default`), and Ctrl+0 goes back to. */
+export const FONT_SIZE_DEFAULT = 18
 export const LINE_HEIGHT_MIN = 1.2
 export const LINE_HEIGHT_MAX = 2.6
 

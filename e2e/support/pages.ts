@@ -63,6 +63,13 @@ export class Reader {
       .selectOption({ label })
   }
 
+  /** The font size the Display panel shows ("18px"); show the panel first. */
+  get fontSize(): Locator {
+    return this.panel('Display')
+      .getByRole('heading', { name: /^Font size/ })
+      .locator('.value')
+  }
+
   /** Searches the book and returns the hit buttons. */
   async search(query: string): Promise<Locator> {
     const panel = this.panel('Search in book')
