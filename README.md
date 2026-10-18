@@ -73,6 +73,8 @@ Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in
 | `←` `PageUp` | Previous page |
 | `Ctrl+F` (macOS: `⌘F`) | Search in the book |
 | `Ctrl+G` (macOS: `⌘G`) | Go to page |
+| `Ctrl+=` / `Ctrl+-` (macOS: `⌘=` / `⌘-`) | Font size larger / smaller |
+| `Ctrl+0` (macOS: `⌘0`) | Default font size |
 | `Esc` | Close the open panel |
 | `Enter` / `Shift+Enter` | Ask AI: send / new line |
 

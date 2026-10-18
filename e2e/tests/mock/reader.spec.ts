@@ -63,3 +63,67 @@ test('the search panel header stays at the top while results scroll', async ({ p
   expect(m.scrolled).toBe(true)
   expect(Math.abs(m.headTop - m.panelTop)).toBeLessThanOrEqual(1)
 })
+
+test('Ctrl+= / Ctrl+- / Ctrl+0 change the font size from the reader and from the book', async ({
+  page
+}) => {
+  const reader = await new Library(page).open('Leafbound サンプル')
+  await expect(reader.pageBox).toBeEnabled({ timeout: 60_000 })
+  await reader.display()
+  await expect(reader.fontSize).toHaveText('18px')
+
+  // Whether each key's default action (the browser's page zoom) was cancelled. These
+  // listeners run after the app's, which were added when the reader opened.
+  await page.evaluate(() => {
+    const w = window as unknown as { lbPrevented: boolean[] }
+    w.lbPrevented = []
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Control') w.lbPrevented.push(e.defaultPrevented)
+    })
+  })
+
+  // The focus on the reader itself.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press('Control+Equal')
+  await expect(reader.fontSize).toHaveText('19px')
+  await page.keyboard.press('Control+NumpadAdd')
+  await expect(reader.fontSize).toHaveText('20px')
+  await page.keyboard.press('Control+Minus')
+  await expect(reader.fontSize).toHaveText('19px')
+  await page.keyboard.press('Control+NumpadSubtract')
+  await expect(reader.fontSize).toHaveText('18px')
+  await page.keyboard.press('Control+Equal')
+  await page.keyboard.press('Control+0')
+  await expect(reader.fontSize).toHaveText('18px')
+  expect(
+    await page.evaluate(() => (window as unknown as { lbPrevented: boolean[] }).lbPrevented)
+  ).toEqual([true, true, true, true, true, true])
+
+  // The focus inside the book's iframe. The listener comes from this page: the iframe's
+  // sandbox runs no script of its own, the same as the app's listeners.
+  await page.evaluate(() => {
+    const w = window as unknown as { lbPrevented: boolean[] }
+    w.lbPrevented = []
+    const book = document.querySelector<HTMLIFrameElement>('.reader-view iframe')?.contentWindow
+    if (!book) throw new Error('the book has no iframe')
+    book.addEventListener('keydown', (e) => {
+      if (e.key !== 'Control') w.lbPrevented.push(e.defaultPrevented)
+    })
+  })
+  await reader.content.locator('p').first().click()
+  await page.keyboard.press('Control+Equal')
+  await page.keyboard.press('Control+Equal')
+  await reader.display()
+  await expect(reader.fontSize).toHaveText('20px')
+  await reader.content.locator('p').first().click()
+  await page.keyboard.press('Control+Minus')
+  await reader.display()
+  await expect(reader.fontSize).toHaveText('19px')
+  await reader.content.locator('p').first().click()
+  await page.keyboard.press('Control+0')
+  await reader.display()
+  await expect(reader.fontSize).toHaveText('18px')
+  expect(
+    await page.evaluate(() => (window as unknown as { lbPrevented: boolean[] }).lbPrevented)
+  ).toEqual([true, true, true, true])
+})
