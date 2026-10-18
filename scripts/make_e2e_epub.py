@@ -6,6 +6,9 @@
   into blob:/data: URLs or inline styles (stylesheet, CSS background, <style>,
   style attributes, images), for the Content Security Policy check.
 - long-contents.epub: forty short chapters, so the Contents panel has to scroll.
+- numbered-contents.epub: EPUB 2 with only a toc.ncx whose entries are all at the top
+  level but numbered (第N部 / N章 / N.N / N.N.N), like a book calibre converted from a
+  Kindle format, for inferring the nesting of the Contents panel.
 
 Run: python scripts/make_e2e_epub.py
 Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
@@ -282,7 +285,90 @@ def write_long_contents(out: Path = LONG_OUT) -> None:
     print(f"wrote {out}")
 
 
+NUMBERED_OUT = FIXTURES / "numbered-contents.epub"
+# Flat in the NCX; the numbers say 第1部 > 1章 > 1.1 > 1.1.1.
+NUMBERED_ENTRIES = [
+    "はじめに",
+    "第1部 基礎",
+    "1章 はじまり",
+    "1.1 準備",
+    "1.1.1 道具",
+    "1.1.2 材料",
+    "1.2 手順",
+    "2章 つづき",
+    "2.1 応用",
+    "2.1.1 発展",
+    "第2部 実践",
+    "3章 まとめ",
+    "3.1 振り返り",
+    "あとがき",
+]
+
+
+def numbered_page(title: str) -> str:
+    # One file per entry, each a few screens long, so the entry for the page is unambiguous.
+    paras = "\n".join(f"<p>{LONG_PARAGRAPH} ({title} {i + 1})</p>" for i in range(8))
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head>'
+        f"<title>{title}</title></head><body><h1>{title}</h1>\n{paras}\n</body></html>\n"
+    )
+
+
+def write_numbered_contents(out: Path = NUMBERED_OUT) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    ids = range(len(NUMBERED_ENTRIES))
+    manifest = "\n".join(f'<item id="s{n}" href="s{n}.xhtml" media-type="application/xhtml+xml"/>' for n in ids)
+    spine = "\n".join(f'<itemref idref="s{n}"/>' for n in ids)
+    nav_points = "\n".join(
+        f'<navPoint id="np{n}" playOrder="{n + 1}"><navLabel><text>{t}</text></navLabel>'
+        f'<content src="s{n}.xhtml"/></navPoint>'
+        for n, t in enumerate(NUMBERED_ENTRIES)
+    )
+    opf = f"""<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-numbered-contents</dc:identifier>
+    <dc:title>Numbered Contents</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>ja</dc:language>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    {manifest}
+  </manifest>
+  <spine toc="ncx">{spine}</spine>
+</package>
+"""
+    ncx = f"""<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:leafbound-numbered-contents"/>
+    <meta name="dtb:depth" content="1"/>
+  </head>
+  <docTitle><text>Numbered Contents</text></docTitle>
+  <navMap>
+{nav_points}
+  </navMap>
+</ncx>
+"""
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/toc.ncx"), ncx)
+        for n, title in enumerate(NUMBERED_ENTRIES):
+            z.writestr(entry(f"OEBPS/s{n}.xhtml"), numbered_page(title))
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
     cover_book()
     write_long_contents()
+    write_numbered_contents()

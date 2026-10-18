@@ -85,6 +85,32 @@ test('the mark follows the reader into the next chapter while the panel is open'
   await expectCurrent(reader, 'Chapter 11')
 })
 
+test('a flat but numbered table of contents is shown nested by its numbers', async ({ page }) => {
+  // Every entry is at the top level of the NCX (scripts/make_e2e_epub.py).
+  const library = new Library(page)
+  await library.add(join(fixtures, 'numbered-contents.epub'), 'numbered-contents')
+  const reader = await library.open('numbered-contents')
+  await reader.showToc()
+
+  const indent = (title: string) =>
+    reader.tocEntry(title).evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingLeft))
+  const top = await indent('第1部 基礎')
+  expect(await indent('はじめに')).toBe(top)
+  expect(await indent('あとがき')).toBe(top)
+  expect(await indent('第2部 実践')).toBe(top)
+  const chapter = await indent('2章 つづき')
+  const section = await indent('2.1 応用')
+  const subsection = await indent('2.1.1 発展')
+  expect(chapter).toBeGreaterThan(top)
+  expect(section).toBeGreaterThan(chapter)
+  expect(subsection).toBeGreaterThan(section)
+  expect(await indent('3章 まとめ')).toBe(chapter)
+
+  await reader.openChapter('2.1.1 発展')
+  await reader.showToc()
+  await expectCurrent(reader, '2.1.1 発展')
+})
+
 test('an entry for an anchor inside a chapter is marked, not the chapter', async ({ page }) => {
   // The sample's 第二章 has a nested entry for ch2.xhtml#sec near its end.
   const reader = await new Library(page).open('Leafbound サンプル')
