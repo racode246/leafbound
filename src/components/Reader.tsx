@@ -22,6 +22,7 @@ import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
 import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
+import { inferTocNesting } from '../lib/tocInfer'
 import {
   HIGHLIGHT_COLORS,
   MIN_SPREAD_WIDTH,
@@ -412,9 +413,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
         const nav = await epubBook.loaded.navigation
         if (disposed) return
-        tocRef.current = nav.toc
-        tocEntriesRef.current = flattenToc(nav.toc, spineHrefs(epubBook))
-        setToc(nav.toc)
+        // A flat TOC with numbered labels gets nesting from the numbers (#66).
+        const tocTree = inferTocNesting(nav.toc)
+        tocRef.current = tocTree
+        tocEntriesRef.current = flattenToc(tocTree, spineHrefs(epubBook))
+        setToc(tocTree)
         await reportRef.current?.()
 
         await epubBook.ready
