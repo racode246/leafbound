@@ -27,7 +27,7 @@ fn epub_args<I: IntoIterator<Item = String>>(args: I) -> Vec<String> {
 
 /// EPUB paths among the URLs macOS hands the app when books are opened from Finder
 /// (`RunEvent::Opened`); macOS passes them there, not on the command line.
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "macos", all(test, unix)))]
 fn epub_urls(urls: &[tauri::Url]) -> Vec<String> {
     epub_args(
         urls.iter()
