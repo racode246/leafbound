@@ -1,5 +1,6 @@
 import { useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { useT } from '../i18n'
+import { shortcutLabel } from '../lib/platform'
 
 interface Props {
   percent: number
@@ -96,8 +97,12 @@ export default function PageNav({ percent, page, totalPages, chapterAt, onJump, 
           value={draft ?? (ready ? String(page) : '')}
           placeholder={ready ? undefined : '…'}
           disabled={!ready}
-          title={ready ? t('reader.pageJumpTitle') : t('reader.pagesPending')}
-          aria-label={t('reader.pageJumpTitle')}
+          title={
+            ready
+              ? t('reader.pageJumpTitle', { shortcut: shortcutLabel('G') })
+              : t('reader.pagesPending')
+          }
+          aria-label={t('reader.pageJumpTitle', { shortcut: shortcutLabel('G') })}
           style={{ '--digits': String(Math.max(2, String(totalPages).length)) } as CSSProperties}
           onFocus={(e) => {
             setDraft(String(page))

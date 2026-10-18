@@ -19,6 +19,7 @@ import ePub, {
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
+import { shortcutLabel } from '../lib/platform'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
 import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
 import {
@@ -686,7 +687,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             <BarButton
               icon={Search}
               label={t('reader.search')}
-              tip={t('reader.searchTip')}
+              tip={t('reader.searchTip', { shortcut: shortcutLabel('F') })}
               active={panel === 'search'}
               onClick={() => togglePanel('search')}
             />

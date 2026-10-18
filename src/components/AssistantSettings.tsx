@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
+import { isMac } from '../lib/platform'
 import {
   DEFAULT_BASE_URLS,
   DEFAULT_MODELS,
@@ -160,7 +161,7 @@ export default function AssistantSettingsView({
             {t('ai.settings.keyDelete')}
           </button>
         )}
-        <p className="muted small">{t('ai.settings.keyHint')}</p>
+        <p className="muted small">{t(isMac ? 'ai.settings.keyHintMac' : 'ai.settings.keyHint')}</p>
         {message && <p className="small">{message}</p>}
       </section>
 

@@ -200,6 +200,8 @@ export const FONT_PRESETS: FontPreset[] = [
   { label: '游明朝 / Yu Mincho', value: '"Yu Mincho", YuMincho, serif' },
   { label: '游ゴシック / Yu Gothic', value: '"Yu Gothic", YuGothic, sans-serif' },
   { label: 'メイリオ / Meiryo', value: 'Meiryo, sans-serif' },
+  { label: 'ヒラギノ明朝 / Hiragino Mincho', value: '"Hiragino Mincho ProN", serif' },
+  { label: 'ヒラギノ角ゴ / Hiragino Sans', value: '"Hiragino Sans", sans-serif' },
   { label: 'BIZ UDP明朝', value: '"BIZ UDPMincho", serif' },
   { label: 'BIZ UDPゴシック', value: '"BIZ UDPGothic", sans-serif' },
   { label: 'Georgia', value: 'Georgia, serif' },

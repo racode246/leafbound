@@ -65,13 +65,13 @@ const ja = {
   'reader.openFailed': 'この本を開けませんでした。',
   'reader.seek': '読書位置',
   'reader.pageOf': '{page} / {total}',
-  'reader.pageJumpTitle': 'ページ番号を入力して Enter で移動 (Ctrl+G)',
+  'reader.pageJumpTitle': 'ページ番号を入力して Enter で移動 ({shortcut})',
   'reader.pagesPending': 'ページ数を計算中…',
   'toc.title': '目次',
   'toc.empty': '目次がありません。',
 
   'reader.search': '検索',
-  'reader.searchTip': '検索 (Ctrl+F)',
+  'reader.searchTip': '検索 ({shortcut})',
   'reader.highlights': 'ハイライト',
   'search.title': '本文を検索',
   'search.placeholder': '検索語を入力して Enter',
@@ -180,6 +180,8 @@ const ja = {
   'ai.settings.keyDeleted': 'API キーを削除しました。',
   'ai.settings.keyHint':
     'キーは Windows 資格情報マネージャーに保存され、アプリの画面や設定ファイルには残りません。ローカルの LLM サーバーでは不要です。',
+  'ai.settings.keyHintMac':
+    'キーは macOS のキーチェーンに保存され、アプリの画面や設定ファイルには残りません。ローカルの LLM サーバーでは不要です。',
   'ai.settings.privacy': '送信される内容',
   'ai.settings.privacyText':
     '質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話が、上で設定した API に送られます。',
@@ -272,13 +274,13 @@ const en: Record<Key, string> = {
   'reader.openFailed': 'Could not open this book.',
   'reader.seek': 'Reading position',
   'reader.pageOf': '{page} / {total}',
-  'reader.pageJumpTitle': 'Type a page number and press Enter (Ctrl+G)',
+  'reader.pageJumpTitle': 'Type a page number and press Enter ({shortcut})',
   'reader.pagesPending': 'Counting pages…',
   'toc.title': 'Table of contents',
   'toc.empty': 'No table of contents.',
 
   'reader.search': 'Search',
-  'reader.searchTip': 'Search (Ctrl+F)',
+  'reader.searchTip': 'Search ({shortcut})',
   'reader.highlights': 'Highlights',
   'search.title': 'Search in book',
   'search.placeholder': 'Type a query and press Enter',
@@ -387,6 +389,8 @@ const en: Record<Key, string> = {
   'ai.settings.keyDeleted': 'API key deleted.',
   'ai.settings.keyHint':
     'The key is kept in Windows Credential Manager, never shown again or written to the settings file. Local LLM servers do not need one.',
+  'ai.settings.keyHintMac':
+    'The key is kept in the macOS Keychain, never shown again or written to the settings file. Local LLM servers do not need one.',
   'ai.settings.privacy': 'What is sent',
   'ai.settings.privacyText':
     'Your question, the current chapter (up to about 6,000 characters), matching passages, highlights and notes, and the last 5 exchanges are sent to the API configured above.',
