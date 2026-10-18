@@ -1,5 +1,5 @@
-// Where an E2E run lives: identifier, ports and folders. Inside a worktree made by
-// .claude/scripts/wt-new.ps1, the slot number in .wt.json shifts all of them so
+// Where an E2E run lives: identifier, ports and folders. A worktree with a .wt.json at
+// its root ({ "slot": N }, N = 1..9, untracked) shifts all of them by its slot so
 // worktrees can run the suites at the same time.
 import { existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
