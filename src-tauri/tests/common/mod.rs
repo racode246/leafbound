@@ -14,13 +14,18 @@ const OVERLAP: usize = 100;
 
 pub const BOOK_ID: &str = "book";
 
-/// The embedding model the installed app downloaded (read only).
+/// The embedding model in LEAFBOUND_MODEL_DIR, or the one the installed app
+/// downloaded (read only).
 pub fn loaded_embedder() -> Embedder {
-    let appdata = std::env::var("APPDATA").expect("APPDATA");
-    let dir = PathBuf::from(appdata)
-        .join("dev.leafbound.app")
-        .join("models")
-        .join("multilingual-e5-small");
+    let dir = match std::env::var("LEAFBOUND_MODEL_DIR") {
+        Ok(dir) => PathBuf::from(dir),
+        // Tauri's app data directory: %APPDATA% on Windows, ~/Library/Application Support on macOS.
+        Err(_) => dirs::data_dir()
+            .expect("no data directory")
+            .join("dev.leafbound.app")
+            .join("models")
+            .join("multilingual-e5-small"),
+    };
     let embedder = Embedder::new(dir);
     assert!(
         embedder.is_downloaded(),

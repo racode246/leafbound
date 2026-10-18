@@ -1,11 +1,11 @@
 // E2E projects (see e2e/README.md):
-//   mock       browser build against the mock backend, installed Edge (headless)
+//   mock       browser build against the mock backend, installed Edge (headless) posing as Windows
 //   webkit     the same build in Playwright's WebKit posing as macOS (WKWebView's engine)
 //   app-build  builds the real app with the slot's identifier and CDP port
 //   app        the real app over WebView2 CDP, window hidden unless --headed; run with --workers=1
 //   live       real LLM and model quality; local only, for related issues
 import { defineConfig } from '@playwright/test'
-import { ports, root } from './support/env.ts'
+import { edgeInstalled, ports, root } from './support/env.ts'
 
 const ci = !!process.env.CI
 
@@ -27,10 +27,16 @@ export default defineConfig({
       testDir: './tests/mock',
       fullyParallel: true,
       use: {
-        channel: 'msedge',
+        // The installed Edge needs no browser download (CI); without it, Playwright's
+        // Chromium (`npx playwright install chromium` once).
+        ...(edgeInstalled ? { channel: 'msedge' } : { browserName: 'chromium' }),
         headless: true,
         locale: 'en-US',
         viewport: { width: 1200, height: 800 },
+        // WebView2 on Windows, whatever the host: src/lib/platform.ts reads the user agent
+        // (shortcut labels, window controls), and the webkit project covers macOS.
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
         baseURL: `http://localhost:${ports.vite}`
       }
     },
