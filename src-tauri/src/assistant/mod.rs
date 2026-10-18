@@ -56,7 +56,7 @@ pub struct AssistantState {
     /// Serialises model download / load so concurrent callers share one run.
     prepare: tauri::async_runtime::Mutex<()>,
     asks: Mutex<HashMap<String, Arc<AtomicBool>>>,
-    /// Credential Manager service name: the app identifier (see `secrets`).
+    /// Credential store service name: the app identifier (see `secrets`).
     key_service: String,
 }
 

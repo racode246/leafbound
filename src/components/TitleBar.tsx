@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useT } from '../i18n'
 import { isBrowserMode } from '../lib/api'
+import { isMac } from '../lib/platform'
 
 interface Props {
   left?: ReactNode
@@ -13,18 +14,22 @@ interface Props {
 }
 
 const win = isBrowserMode ? null : getCurrentWindow()
+// macOS keeps the native frame with an overlay title bar (tauri.macos.conf.json), so the
+// system's traffic-light buttons sit over the left end of this bar instead of our controls.
+const nativeControls = win !== null && isMac
 
 /**
  * Chrome-style title bar drawn inside the webview. The native frame is
  * disabled in tauri.conf.json, so this bar provides dragging (via
  * data-tauri-drag-region), double-click to maximise, and window controls.
+ * On macOS it leaves room for the traffic lights and draws no controls.
  */
 export default function TitleBar({ left, center, right, bg, fg, border }: Props) {
   const t = useT()
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
-    if (!win) return
+    if (!win || nativeControls) return
     let unlisten: (() => void) | undefined
     let disposed = false
     const refresh = () => void win.isMaximized().then((m) => !disposed && setMaximized(m))
@@ -43,7 +48,7 @@ export default function TitleBar({ left, center, right, bg, fg, border }: Props)
 
   return (
     <div
-      className="titlebar"
+      className={nativeControls ? 'titlebar mac' : 'titlebar'}
       data-tauri-drag-region
       style={{ background: bg, color: fg, borderColor: border }}
     >
@@ -52,7 +57,7 @@ export default function TitleBar({ left, center, right, bg, fg, border }: Props)
         {center}
       </div>
       <div className="titlebar-right">{right}</div>
-      {win && (
+      {win && !nativeControls && (
         <div className="window-controls">
           <button
             type="button"

@@ -103,7 +103,8 @@ export class Reader {
   }
 
   get pageBox(): Locator {
-    return this.page.getByLabel('Type a page number and press Enter (Ctrl+G)')
+    // ⌘G on macOS.
+    return this.page.getByLabel(/^Type a page number and press Enter \((Ctrl\+|⌘)G\)$/)
   }
 
   get seek(): Locator {

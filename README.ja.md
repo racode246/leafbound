@@ -2,7 +2,7 @@
 
 # Leafbound
 
-Windows 向けの、静かで軽いオープンソース EPUB リーダーです。読んでいる本の内容を AI に質問できます。
+Windows と macOS 向けの、静かで軽いオープンソース EPUB リーダーです。読んでいる本の内容を AI に質問できます。
 
 https://github.com/user-attachments/assets/a9ec5861-b565-4ac1-9db6-a431f097cb5b
 
@@ -27,7 +27,7 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 ### プライバシーと API キー
 
 - 索引作成と本文の検索はこの PC 上で行います。プロバイダへのリクエストは質問ごとに 2 回 (検索用の一節と回答) です。送られるのは、質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話だけです。Ollama のようなローカルサーバーを使えば、何も PC の外に出ません。
-- API キーは Windows 資格情報マネージャーに保存します。設定ファイルには書かれず、アプリに再表示されることもなく、HTTPS でのみ送信します (平文の HTTP は `localhost` に限り許可)。
+- API キーは Windows 資格情報マネージャー、または macOS のキーチェーンに保存します。設定ファイルには書かれず、アプリに再表示されることもなく、HTTPS でのみ送信します (平文の HTTP は `localhost` に限り許可)。
 
 ## 機能
 
@@ -49,13 +49,20 @@ Leafbound は [Tauri 2](https://tauri.app/)(Rust)、React、TypeScript、[epub.j
 
 ## インストール
 
-[Releases ページ](https://github.com/racode246/leafbound/releases)からインストーラ(`Leafbound_<version>_x64-setup.exe`)をダウンロードしてください。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
+[Releases ページ](https://github.com/racode246/leafbound/releases)からダウンロードしてください。
+
+- **Windows**: インストーラ `Leafbound_<version>_x64-setup.exe`。コード署名はまだ行っていないため、初回起動時に Windows SmartScreen の確認が出ることがあります。
+- **macOS** (Apple Silicon): ディスクイメージ `Leafbound_<version>_aarch64.dmg`。開いて Leafbound を「アプリケーション」にドラッグします。アプリは署名・公証していないため、初回起動は macOS にブロックされます。「アプリケーション」で Leafbound を Control キーを押しながらクリック (または右クリック) して **開く** を選び、確認してください (最近の macOS では、一度開こうとしたあと **システム設定 > プライバシーとセキュリティ** で **このまま開く** を押します)。ターミナルで隔離フラグを外す方法もあります:
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/Leafbound.app
+  ```
 
 Leafbound は起動時 (1 日 1 回まで) と、ライブラリのサイドバー下部の **アップデートを確認** を押したときに新しいリリースを確認します。新しいバージョンと変更点を表示し、確認してからインストールして再起動します。アップデートには署名があり、インストール前に検証します。
 
-下記の手順でソースからビルドすることもできます。インストーラが `src-tauri/target/release/bundle/nsis/` に生成されます。
+下記の手順でソースからビルドすることもできます。Windows では `src-tauri/target/release/bundle/nsis/`、macOS では `src-tauri/target/release/bundle/dmg/` に生成されます。
 
-動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)。「AI に質問」にはプロバイダの API キー、またはローカルの OpenAI 互換サーバーが必要です。
+動作環境: Windows 10 / 11 と WebView2 ランタイム(Windows 11 には同梱)、または Apple Silicon の macOS。「AI に質問」にはプロバイダの API キー、またはローカルの OpenAI 互換サーバーが必要です。
 
 ## キーボード操作
 
@@ -63,8 +70,8 @@ Leafbound は起動時 (1 日 1 回まで) と、ライブラリのサイドバ�
 |---|---|
 | `→` `PageDown` `Space` | 次のページ |
 | `←` `PageUp` | 前のページ |
-| `Ctrl+F` | 本文内検索 |
-| `Ctrl+G` | ページ指定で移動 |
+| `Ctrl+F` (macOS: `⌘F`) | 本文内検索 |
+| `Ctrl+G` (macOS: `⌘G`) | ページ指定で移動 |
 | `Esc` | 開いているパネルを閉じる |
 | `Enter` / `Shift+Enter` | AI に質問: 送信 / 改行 |
 
@@ -75,9 +82,10 @@ Leafbound は起動時 (1 日 1 回まで) と、ライブラリのサイドバ�
 必要なもの:
 
 - Node.js 20.19 以上 または 22.12 以上 (Vite 8 の要件)
-- Rust 1.90 以上 (stable、`x86_64-pc-windows-msvc`)
-- Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」ワークロード。リンクのほか、同梱の C/C++ コード (SQLite、sqlite-vec、トークナイザのライブラリ) のコンパイルに使います。
-- WebView2 ランタイム(Windows 11 には同梱)
+- Rust 1.90 以上 (stable、`x86_64-pc-windows-msvc` または `aarch64-apple-darwin`)
+- Windows: Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」ワークロード。リンクのほか、同梱の C/C++ コード (SQLite、sqlite-vec、トークナイザのライブラリ) のコンパイルに使います。
+- Windows: WebView2 ランタイム(Windows 11 には同梱)
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
 - `src-tauri/target` 用に約 5 GB の空き容量
 
 ```bash
@@ -86,7 +94,7 @@ npm run tauri dev      # ホットリロード付きで起動
 npm run tauri build    # インストーラを生成
 ```
 
-初回の Rust ビルドでは、`ort` クレートがビルド済みの ONNX Runtime (約 350 MB) を `cdn.pyke.io` からダウンロードし、検証したうえで静的リンクします。キャッシュは `%LOCALAPPDATA%\ort.pyke.io` に置かれます。オフラインでビルドする場合は、自分でビルドした ONNX Runtime を `ORT_LIB_LOCATION` で指定してください ([ort のリンク方法](https://ort.pyke.io/setup/linking))。
+初回の Rust ビルドでは、`ort` クレートがビルド済みの ONNX Runtime (約 350 MB) を `cdn.pyke.io` からダウンロードし、検証したうえで静的リンクします。キャッシュは `%LOCALAPPDATA%\ort.pyke.io` (macOS は `~/Library/Caches/ort.pyke.io`) に置かれます。オフラインでビルドする場合は、自分でビルドした ONNX Runtime を `ORT_LIB_LOCATION` で指定してください ([ort のリンク方法](https://ort.pyke.io/setup/linking))。
 
 チェック:
 
@@ -101,7 +109,8 @@ cargo test --manifest-path src-tauri/Cargo.toml --test embedding_model -- --igno
 
 ## データの保存場所
 
-`%APPDATA%\dev.leafbound.app\`
+- Windows: `%APPDATA%\dev.leafbound.app\`
+- macOS: `~/Library/Application Support/dev.leafbound.app/`
 
 | パス | 内容 |
 |---|---|
@@ -112,7 +121,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --test embedding_model -- --igno
 | `assistant.sqlite` | AI に質問: 本文・ハイライト・会話のベクトルと会話履歴 |
 | `models\` | 検索用モデル (「AI に質問」の初回利用時にダウンロード) |
 
-ライブラリから本を削除すると、コピー、メモ、「AI に質問」がその本について保存したデータも削除されます。元のファイルには触れません。API キーはこのフォルダではなく Windows 資格情報マネージャーにあります。
+ライブラリから本を削除すると、コピー、メモ、「AI に質問」がその本について保存したデータも削除されます。元のファイルには触れません。API キーはこのフォルダではなく Windows 資格情報マネージャー、または macOS のキーチェーンにあります。
 
 ## ディレクトリ構成
 

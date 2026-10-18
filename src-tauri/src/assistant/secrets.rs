@@ -1,4 +1,4 @@
-//! API keys live in the OS credential store (Windows Credential Manager),
+//! API keys live in the OS credential store (Windows Credential Manager, macOS Keychain),
 //! never in library.json and never sent back to the webview.
 //!
 //! Entries are keyed by the app identifier (`service`), so builds with another

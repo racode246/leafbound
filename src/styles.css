@@ -17,7 +17,9 @@
   --danger: #a4452e;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(40, 30, 10, 0.08), 0 6px 18px rgba(40, 30, 10, 0.08);
-  font-family: 'Segoe UI', 'Yu Gothic UI', Meiryo, system-ui, sans-serif;
+  font-family:
+    'Segoe UI', 'Yu Gothic UI', Meiryo, -apple-system, BlinkMacSystemFont, 'Hiragino Sans',
+    system-ui, sans-serif;
   font-size: 14px;
   color: var(--ink);
   background: var(--paper);
@@ -221,6 +223,11 @@ input:not([type]) {
   transition:
     opacity 120ms 400ms,
     visibility 0s 400ms;
+}
+
+/* Room for the macOS traffic lights (trafficLightPosition in tauri.macos.conf.json). */
+.titlebar.mac {
+  padding-left: 78px;
 }
 
 .window-controls {

@@ -2,7 +2,7 @@
 
 # Leafbound
 
-A calm, open-source EPUB reader for Windows, with an AI reading companion that answers questions about the book you are reading.
+A calm, open-source EPUB reader for Windows and macOS, with an AI reading companion that answers questions about the book you are reading.
 
 https://github.com/user-attachments/assets/a9ec5861-b565-4ac1-9db6-a431f097cb5b
 
@@ -28,7 +28,7 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 ### Privacy and API keys
 
 - Indexing and the passage search run on your PC; each question makes two requests to the provider (the search passage, then the answer). Only your question, the current chapter (up to about 6,000 characters), the retrieved passages, highlights and notes, and the last 5 exchanges are sent to the provider you choose. With a local server such as Ollama, nothing leaves your machine.
-- API keys are stored in Windows Credential Manager. They are never written to the settings file, never shown again in the app, and only sent over HTTPS (plain HTTP is allowed for `localhost`).
+- API keys are stored in Windows Credential Manager or the macOS Keychain. They are never written to the settings file, never shown again in the app, and only sent over HTTPS (plain HTTP is allowed for `localhost`).
 
 ## Features
 
@@ -50,13 +50,20 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 ## Installation
 
-Download the installer (`Leafbound_<version>_x64-setup.exe`) from the [Releases page](https://github.com/racode246/leafbound/releases). Builds are not code-signed yet, so Windows SmartScreen may ask you to confirm the first launch.
+Download a build from the [Releases page](https://github.com/racode246/leafbound/releases):
+
+- **Windows**: the installer `Leafbound_<version>_x64-setup.exe`. Builds are not code-signed yet, so Windows SmartScreen may ask you to confirm the first launch.
+- **macOS** (Apple Silicon): the disk image `Leafbound_<version>_aarch64.dmg`. Open it and drag Leafbound to Applications. The app is not signed or notarized, so macOS blocks the first launch. Either Control-click (or right-click) Leafbound in Applications and choose **Open**, then confirm (on recent macOS, open **System Settings > Privacy & Security** and click **Open Anyway** after the first attempt), or remove the quarantine flag in Terminal:
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/Leafbound.app
+  ```
 
 Leafbound looks for a new release when it starts (at most once a day) and when you click **Check for updates** at the bottom of the library sidebar. It shows the new version and its release notes, and installs it only when you confirm, then restarts. Updates are signed, and the signature is verified before anything is installed.
 
-You can also build an installer from source (see below); the installer is written to `src-tauri/target/release/bundle/nsis/`.
+You can also build an installer from source (see below); it is written to `src-tauri/target/release/bundle/nsis/` on Windows and `src-tauri/target/release/bundle/dmg/` on macOS.
 
-Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in Windows 11). Ask AI also needs an API key for your provider, or a local OpenAI-compatible server.
+Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in Windows 11), or macOS on Apple Silicon. Ask AI also needs an API key for your provider, or a local OpenAI-compatible server.
 
 ## Keyboard shortcuts
 
@@ -64,8 +71,8 @@ Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in
 |---|---|
 | `→` `PageDown` `Space` | Next page |
 | `←` `PageUp` | Previous page |
-| `Ctrl+F` | Search in the book |
-| `Ctrl+G` | Go to page |
+| `Ctrl+F` (macOS: `⌘F`) | Search in the book |
+| `Ctrl+G` (macOS: `⌘G`) | Go to page |
 | `Esc` | Close the open panel |
 | `Enter` / `Shift+Enter` | Ask AI: send / new line |
 
@@ -76,9 +83,10 @@ Mouse wheel turns pages in paged mode.
 Prerequisites:
 
 - Node.js 20.19+ or 22.12+ (required by Vite 8)
-- Rust 1.90 or newer (stable, `x86_64-pc-windows-msvc`)
-- Visual Studio Build Tools 2022 with the "Desktop development with C++" workload. Besides linking, it compiles the bundled C/C++ code: SQLite, sqlite-vec and the tokenizer libraries.
-- WebView2 runtime (bundled with Windows 11)
+- Rust 1.90 or newer (stable, `x86_64-pc-windows-msvc` or `aarch64-apple-darwin`)
+- Windows: Visual Studio Build Tools 2022 with the "Desktop development with C++" workload. Besides linking, it compiles the bundled C/C++ code: SQLite, sqlite-vec and the tokenizer libraries.
+- Windows: WebView2 runtime (bundled with Windows 11)
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
 - About 5 GB of free disk space for `src-tauri/target`
 
 ```bash
@@ -87,7 +95,7 @@ npm run tauri dev      # run with hot reload
 npm run tauri build    # produce the installer
 ```
 
-The first Rust build downloads prebuilt ONNX Runtime binaries (about 350 MB, through the `ort` crate) from `cdn.pyke.io`, verifies them and links them statically. They are cached in `%LOCALAPPDATA%\ort.pyke.io`. To build offline, point `ORT_LIB_LOCATION` at an ONNX Runtime build of your own (see the [ort linking guide](https://ort.pyke.io/setup/linking)).
+The first Rust build downloads prebuilt ONNX Runtime binaries (about 350 MB, through the `ort` crate) from `cdn.pyke.io`, verifies them and links them statically. They are cached in `%LOCALAPPDATA%\ort.pyke.io` (macOS: `~/Library/Caches/ort.pyke.io`). To build offline, point `ORT_LIB_LOCATION` at an ONNX Runtime build of your own (see the [ort linking guide](https://ort.pyke.io/setup/linking)).
 
 Checks:
 
@@ -102,7 +110,8 @@ Browser mode: `npm run dev` and open http://localhost:1420 in a browser. Outside
 
 ## Where your data lives
 
-`%APPDATA%\dev.leafbound.app\`
+- Windows: `%APPDATA%\dev.leafbound.app\`
+- macOS: `~/Library/Application Support/dev.leafbound.app/`
 
 | Path | Contents |
 |---|---|
@@ -113,7 +122,7 @@ Browser mode: `npm run dev` and open http://localhost:1420 in a browser. Outside
 | `assistant.sqlite` | Ask AI: passage, highlight and conversation vectors, and conversation history |
 | `models\` | The local embedding model, downloaded on first use of Ask AI |
 
-Removing a book from the library deletes its copy, annotations and everything Ask AI stored for it. Original files are not touched. API keys live in Windows Credential Manager, not in this folder.
+Removing a book from the library deletes its copy, annotations and everything Ask AI stored for it. Original files are not touched. API keys live in Windows Credential Manager or the macOS Keychain, not in this folder.
 
 ## Project layout
 

@@ -61,6 +61,7 @@
     "fileAssociations": [
       {
         "ext": ["epub"],
+        "contentTypes": ["org.idpf.epub-container"],
         "name": "EPUB Book",
         "description": "EPUB Book",
         "role": "Viewer",

@@ -5,7 +5,8 @@
 //! (`automatic`, at most once a day) and from the "Check for updates" button; it then asks
 //! for confirmation and calls `update_install`, which downloads the installer, verifies
 //! its signature and runs it. On Windows the plugin starts the NSIS installer and exits
-//! the app; the installer restarts it.
+//! the app; the installer restarts it. On macOS the plugin replaces the .app bundle with
+//! the one in the .app.tar.gz and returns; `update_install` then restarts the app.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -223,8 +224,9 @@ pub async fn update_check(
 }
 
 /// Downloads, verifies and installs the update found by the last check. On Windows the
-/// app exits here once the installer has started (the installer restarts it); this
-/// returns only on failure, e.g. a signature that does not match the public key.
+/// app exits here once the installer has started (the installer restarts it); on macOS
+/// the app restarts once the bundle is replaced. This returns only on failure, e.g. a
+/// signature that does not match the public key.
 #[tauri::command]
 pub async fn update_install(
     app: AppHandle,
@@ -258,7 +260,7 @@ pub async fn update_install(
     state.installing.store(false, Ordering::SeqCst);
 
     match result {
-        // Not reached on Windows, where the plugin exits the app to run the installer.
+        // macOS only: on Windows the plugin exits the app to run the installer.
         Ok(()) => app.restart(),
         Err(err) => {
             eprintln!("update: install failed: {err}");
