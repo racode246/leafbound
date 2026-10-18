@@ -1,7 +1,7 @@
 [package]
 name = "leafbound"
 version = "0.3.1"
-description = "A calm, open-source EPUB reader for Windows."
+description = "A calm, open-source EPUB reader for Windows and macOS."
 authors = ["racode246"]
 license = "MIT"
 edition = "2021"
@@ -9,7 +9,7 @@ rust-version = "1.90"
 
 [lib]
 name = "leafbound_lib"
-# Windows desktop only: the binary links the rlib. The template's staticlib/cdylib
+# Desktop only (Windows, macOS): the binary links the rlib. The template's staticlib/cdylib
 # (iOS/Android) would each bundle every dependency, ONNX Runtime included.
 crate-type = ["rlib"]
 
@@ -33,7 +33,7 @@ imagesize = "0.13"
 fastembed = { version = "7", default-features = false, features = ["ort-download-binaries-native-tls"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 sqlite-vec = "0.1.9"
-keyring = { version = "3", features = ["windows-native"] }
+keyring = { version = "3", features = ["windows-native", "apple-native"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "native-tls", "charset", "http2", "system-proxy"] }
 futures-util = "0.3"
 tokio = { version = "1", features = ["fs", "io-util", "time"] }

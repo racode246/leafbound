@@ -191,5 +191,5 @@ pub fn save_annotations(
 #[tauri::command]
 pub fn take_pending_open_files(pending: State<'_, PendingOpen>) -> Vec<String> {
     let mut guard = pending.0.lock().unwrap_or_else(|p| p.into_inner());
-    std::mem::take(&mut *guard)
+    guard.take().unwrap_or_default()
 }
