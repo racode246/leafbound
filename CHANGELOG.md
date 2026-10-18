@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/racode246/leafbound/compare/v0.3.1...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* support macOS (Apple Silicon) ([#51](https://github.com/racode246/leafbound/issues/51)) ([3c0c4fc](https://github.com/racode246/leafbound/commit/3c0c4fc73ebb9b6b45dfdfa2628a2a81219031dd))
+
 ## [0.3.1](https://github.com/racode246/leafbound/compare/v0.3.0...v0.3.1) (2026-10-17)
 
 
