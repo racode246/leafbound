@@ -74,7 +74,7 @@ fn retrieval_finds_the_answering_chapter() {
     let embedder = common::loaded_embedder();
     let db = common::index_book(&embedder, &chapters);
 
-    let key = secrets::get(secrets::APP_SERVICE, "anthropic")
+    let key = secrets::get(secrets::APP_SERVICE, Provider::Anthropic)
         .unwrap()
         .expect("store an Anthropic API key in the app first");
     let rt = tokio::runtime::Builder::new_current_thread()

@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-use leafbound_lib::library::{Annotation, AssistantSettings, Import, LibraryStore, Settings};
+use leafbound_lib::library::{
+    Annotation, AssistantSettings, Flow, Import, Language, LibraryStore, Provider, Settings,
+    Spread, Theme, View,
+};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample.epub")
@@ -49,8 +52,8 @@ fn imports_epub_with_metadata_and_cover() {
     assert_eq!(reloaded.books.len(), 1);
     assert_eq!(reloaded.books[0].id, book.id);
     assert!(reloaded.books[0].cover_path.is_some());
-    assert_eq!(reloaded.settings.spread, "auto");
-    assert_eq!(reloaded.settings.language, "system");
+    assert_eq!(reloaded.settings.spread, Spread::Auto);
+    assert_eq!(reloaded.settings.language, Language::System);
 
     fs::remove_dir_all(dir).ok();
 }
@@ -235,30 +238,30 @@ fn tracks_progress_categories_and_settings() {
 
     // Settings round-trip.
     let settings = Settings {
-        view: "list".into(),
-        flow: "scrolled".into(),
-        spread: "always".into(),
-        theme: "dark".into(),
+        view: View::List,
+        flow: Flow::Scrolled,
+        spread: Spread::Always,
+        theme: Theme::Dark,
         font_family: "serif".into(),
         font_size: 22,
         line_height: 2.0,
-        language: "en".into(),
+        language: Language::En,
         assistant: AssistantSettings {
-            provider: "openai".into(),
+            provider: Provider::OpenAi,
             model: "llama3".into(),
             base_url: "http://localhost:11434/v1".into(),
         },
     };
     store.save_settings(settings).unwrap();
     let reloaded = LibraryStore::load(dir.clone()).unwrap().snapshot();
-    assert_eq!(reloaded.settings.view, "list");
-    assert_eq!(reloaded.settings.assistant.provider, "openai");
+    assert_eq!(reloaded.settings.view, View::List);
+    assert_eq!(reloaded.settings.assistant.provider, Provider::OpenAi);
     assert_eq!(
         reloaded.settings.assistant.base_url,
         "http://localhost:11434/v1"
     );
-    assert_eq!(reloaded.settings.spread, "always");
-    assert_eq!(reloaded.settings.language, "en");
+    assert_eq!(reloaded.settings.spread, Spread::Always);
+    assert_eq!(reloaded.settings.language, Language::En);
     assert_eq!(reloaded.settings.font_size, 22);
 
     // Delete removes files and entry.
@@ -471,4 +474,107 @@ fn unreadable_library_removes_nothing() {
 fn missing_library_removes_nothing() {
     let dir = temp_dir("missing");
     assert_keeps_files_after_reset(dir);
+}
+
+/// Writes a `library.json` holding `settings` (and nothing else) into `dir`.
+fn write_library_with_settings(dir: &std::path::Path, settings: &serde_json::Value) {
+    let payload = serde_json::json!({
+        "version": 1,
+        "books": [],
+        "categories": ["SF"],
+        "settings": settings,
+    });
+    fs::write(
+        dir.join("library.json"),
+        serde_json::to_string_pretty(&payload).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn unknown_setting_values_fall_back_to_defaults() {
+    let dir = temp_dir("settings-unknown");
+    write_library_with_settings(
+        &dir,
+        &serde_json::json!({
+            "view": "tiles",
+            "flow": "vertical",
+            "spread": "double",
+            "theme": "purple",
+            "fontFamily": "serif",
+            "fontSize": 20,
+            "lineHeight": 1.5,
+            "language": "fr",
+            "assistant": { "provider": "unknown", "model": "m", "baseUrl": "" },
+        }),
+    );
+    let snap = LibraryStore::load(dir.clone()).unwrap().snapshot();
+    // The rest of the file was still read: the library did not start over.
+    assert_eq!(snap.categories, vec!["SF".to_string()]);
+
+    let settings = serde_json::to_value(&snap.settings).unwrap();
+    assert_eq!(settings["view"], "grid");
+    assert_eq!(settings["flow"], "paginated");
+    assert_eq!(settings["spread"], "auto");
+    assert_eq!(settings["theme"], "light");
+    assert_eq!(settings["language"], "system");
+    assert_eq!(settings["assistant"]["provider"], "anthropic");
+    // Free-form fields next to them are untouched.
+    assert_eq!(settings["fontFamily"], "serif");
+    assert_eq!(settings["fontSize"], 20);
+    assert_eq!(settings["assistant"]["model"], "m");
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn missing_setting_values_fall_back_to_defaults() {
+    let dir = temp_dir("settings-missing");
+    write_library_with_settings(
+        &dir,
+        &serde_json::json!({
+            "fontFamily": "serif",
+            "fontSize": 20,
+            "lineHeight": 1.5,
+        }),
+    );
+    let snap = LibraryStore::load(dir.clone()).unwrap().snapshot();
+    assert_eq!(snap.categories, vec!["SF".to_string()]);
+    let settings = serde_json::to_value(&snap.settings).unwrap();
+    assert_eq!(settings["view"], "grid");
+    assert_eq!(settings["flow"], "paginated");
+    assert_eq!(settings["theme"], "light");
+    assert_eq!(settings["fontFamily"], "serif");
+    fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn known_setting_values_survive_a_round_trip_unchanged() {
+    let dir = temp_dir("settings-roundtrip");
+    let original = serde_json::json!({
+        "view": "list",
+        "flow": "scrolled",
+        "spread": "always",
+        "theme": "sepia",
+        "fontFamily": "serif",
+        "fontSize": 22,
+        "lineHeight": 2.0,
+        "language": "ja",
+        "assistant": {
+            "provider": "openai",
+            "model": "llama3",
+            "baseUrl": "http://localhost:11434/v1",
+        },
+    });
+    write_library_with_settings(&dir, &original);
+
+    let mut store = LibraryStore::load(dir.clone()).unwrap();
+    assert_eq!(serde_json::to_value(store.settings()).unwrap(), original);
+
+    // Saving writes exactly the strings that were read.
+    let settings = store.settings().clone();
+    store.save_settings(settings).unwrap();
+    let saved: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("library.json")).unwrap()).unwrap();
+    assert_eq!(saved["settings"], original);
+    fs::remove_dir_all(dir).ok();
 }

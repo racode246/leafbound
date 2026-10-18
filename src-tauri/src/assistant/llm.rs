@@ -21,28 +21,7 @@ const FALLBACK_MODELS: &[&str] = &[
 ];
 const FALLBACK_BETA: &str = "server-side-fallback-2026-07-01";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Provider {
-    Anthropic,
-    OpenAi,
-}
-
-impl Provider {
-    pub fn parse(s: &str) -> Result<Self, String> {
-        match s {
-            "anthropic" => Ok(Self::Anthropic),
-            "openai" => Ok(Self::OpenAi),
-            other => Err(format!("unknown provider: {other}")),
-        }
-    }
-
-    pub fn key_name(self) -> &'static str {
-        match self {
-            Self::Anthropic => "anthropic",
-            Self::OpenAi => "openai",
-        }
-    }
-}
+pub use crate::library::Provider;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {

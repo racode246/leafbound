@@ -2,7 +2,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,28 +37,127 @@ pub struct Book {
     pub cover_path: Option<String>,
 }
 
-fn default_spread() -> String {
-    "auto".into()
+/// Deserializes a setting that has a fixed set of values, falling back to its
+/// default when the stored value is not one of them (say, a `theme` written by
+/// a newer or a broken build). The rest of `library.json` is still read, so a
+/// stray value never resets the library. Missing fields are covered by
+/// `#[serde(default)]` on the field itself.
+fn or_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned + Default,
+{
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    Ok(T::deserialize(&raw).unwrap_or_else(|err| {
+        eprintln!("library: ignoring setting value {raw}: {err}");
+        T::default()
+    }))
 }
 
-fn default_language() -> String {
-    "system".into()
+/// How the library lists books.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum View {
+    #[default]
+    Grid,
+    List,
+}
+
+/// How the reader lays out a chapter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Flow {
+    #[default]
+    Paginated,
+    Scrolled,
+}
+
+/// Whether paginated flow shows two pages side by side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Spread {
+    None,
+    #[default]
+    Auto,
+    Always,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    Light,
+    Sepia,
+    Dark,
+}
+
+/// UI language; `System` follows the OS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    #[default]
+    System,
+    Ja,
+    En,
+}
+
+/// Which kind of LLM API the assistant talks to. `OpenAi` covers any
+/// OpenAI-compatible endpoint. The JSON form (`"anthropic"`, `"openai"`) is
+/// also the name the API key is stored under (see `assistant::secrets`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    #[default]
+    Anthropic,
+    OpenAi,
+}
+
+impl Provider {
+    pub const ALL: [Provider; 2] = [Provider::Anthropic, Provider::OpenAi];
+
+    /// The JSON string for this provider.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Anthropic => "anthropic",
+            Self::OpenAi => "openai",
+        }
+    }
+}
+
+impl std::str::FromStr for Provider {
+    type Err = String;
+
+    /// Strict, unlike the lenient settings field: an unknown name is an error.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|p| p.as_str() == s)
+            .ok_or_else(|| format!("unknown provider: {s}"))
+    }
+}
+
+impl std::fmt::Display for Provider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    pub view: String,
-    pub flow: String,
-    #[serde(default = "default_spread")]
-    pub spread: String,
-    pub theme: String,
+    #[serde(default, deserialize_with = "or_default")]
+    pub view: View,
+    #[serde(default, deserialize_with = "or_default")]
+    pub flow: Flow,
+    #[serde(default, deserialize_with = "or_default")]
+    pub spread: Spread,
+    #[serde(default, deserialize_with = "or_default")]
+    pub theme: Theme,
     pub font_family: String,
     pub font_size: u32,
     pub line_height: f64,
-    /// "system" | "ja" | "en"
-    #[serde(default = "default_language")]
-    pub language: String,
+    #[serde(default, deserialize_with = "or_default")]
+    pub language: Language,
     #[serde(default)]
     pub assistant: AssistantSettings,
 }
@@ -67,8 +167,8 @@ pub struct Settings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AssistantSettings {
-    /// "anthropic" | "openai" (any OpenAI-compatible endpoint)
-    pub provider: String,
+    #[serde(deserialize_with = "or_default")]
+    pub provider: Provider,
     pub model: String,
     /// Empty means the provider's official endpoint.
     pub base_url: String,
@@ -77,7 +177,7 @@ pub struct AssistantSettings {
 impl Default for AssistantSettings {
     fn default() -> Self {
         Self {
-            provider: "anthropic".into(),
+            provider: Provider::default(),
             model: "claude-sonnet-5-5".into(),
             base_url: String::new(),
         }
@@ -87,14 +187,14 @@ impl Default for AssistantSettings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            view: "grid".into(),
-            flow: "paginated".into(),
-            spread: default_spread(),
-            theme: "light".into(),
+            view: View::default(),
+            flow: Flow::default(),
+            spread: Spread::default(),
+            theme: Theme::default(),
             font_family: "publisher".into(),
             font_size: 18,
             line_height: 1.7,
-            language: default_language(),
+            language: Language::default(),
             assistant: AssistantSettings::default(),
         }
     }
@@ -724,4 +824,71 @@ fn hash_file(path: &Path) -> Result<String, String> {
     let bytes = fs::read(path).map_err(|e| format!("read failed: {e}"))?;
     let digest = Sha256::digest(&bytes);
     Ok(digest.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn json<T: Serialize>(value: T) -> String {
+        serde_json::to_string(&value).unwrap()
+    }
+
+    #[test]
+    fn setting_enums_keep_the_strings_library_json_always_used() {
+        assert_eq!(json(View::Grid), r#""grid""#);
+        assert_eq!(json(View::List), r#""list""#);
+        assert_eq!(json(Flow::Paginated), r#""paginated""#);
+        assert_eq!(json(Flow::Scrolled), r#""scrolled""#);
+        assert_eq!(json(Spread::None), r#""none""#);
+        assert_eq!(json(Spread::Auto), r#""auto""#);
+        assert_eq!(json(Spread::Always), r#""always""#);
+        assert_eq!(json(Theme::Light), r#""light""#);
+        assert_eq!(json(Theme::Sepia), r#""sepia""#);
+        assert_eq!(json(Theme::Dark), r#""dark""#);
+        assert_eq!(json(Language::System), r#""system""#);
+        assert_eq!(json(Language::Ja), r#""ja""#);
+        assert_eq!(json(Language::En), r#""en""#);
+        assert_eq!(json(Provider::Anthropic), r#""anthropic""#);
+        assert_eq!(json(Provider::OpenAi), r#""openai""#);
+    }
+
+    #[test]
+    fn defaults_match_the_previous_string_defaults() {
+        let settings = serde_json::to_value(Settings::default()).unwrap();
+        assert_eq!(settings["view"], "grid");
+        assert_eq!(settings["flow"], "paginated");
+        assert_eq!(settings["spread"], "auto");
+        assert_eq!(settings["theme"], "light");
+        assert_eq!(settings["language"], "system");
+        assert_eq!(settings["assistant"]["provider"], "anthropic");
+    }
+
+    #[test]
+    fn provider_parses_strictly_and_round_trips() {
+        for provider in Provider::ALL {
+            assert_eq!(provider.as_str().parse::<Provider>(), Ok(provider));
+            assert_eq!(json(provider), format!("\"{provider}\""));
+        }
+        assert!("unknown".parse::<Provider>().is_err());
+        // Command arguments stay strict: only the settings field is lenient.
+        assert!(serde_json::from_str::<Provider>(r#""unknown""#).is_err());
+    }
+
+    #[test]
+    fn unknown_or_non_string_setting_values_become_defaults() {
+        let settings: Settings = serde_json::from_str(
+            r#"{"view":"tiles","flow":7,"spread":null,"theme":"purple",
+                "fontFamily":"serif","fontSize":20,"lineHeight":1.5,
+                "language":["ja"],"assistant":{"provider":"unknown"}}"#,
+        )
+        .unwrap();
+        assert_eq!(settings.view, View::Grid);
+        assert_eq!(settings.flow, Flow::Paginated);
+        assert_eq!(settings.spread, Spread::Auto);
+        assert_eq!(settings.theme, Theme::Light);
+        assert_eq!(settings.language, Language::System);
+        assert_eq!(settings.assistant.provider, Provider::Anthropic);
+        assert_eq!(settings.font_family, "serif");
+    }
 }
