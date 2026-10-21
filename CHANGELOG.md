@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/racode246/leafbound/compare/v0.6.0...v0.7.0) (2026-10-21)
+
+
+### Features
+
+* **assistant:** answer whole-chapter questions and keep citations stable ([#75](https://github.com/racode246/leafbound/issues/75)) ([3501a9e](https://github.com/racode246/leafbound/commit/3501a9ed68b007d58e2a3df78cd64c3be1aac71f))
+
+
+### Bug Fixes
+
+* **deps:** override @xmldom/xmldom to 0.8.15 ([#71](https://github.com/racode246/leafbound/issues/71)) ([61160cf](https://github.com/racode246/leafbound/commit/61160cf7d4f0cfcc412d7180b01bf106674cb250))
+
 ## [0.6.0](https://github.com/racode246/leafbound/compare/v0.5.0...v0.6.0) (2026-10-18)
 
 
