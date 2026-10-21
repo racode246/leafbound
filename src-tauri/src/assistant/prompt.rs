@@ -1,11 +1,21 @@
 //! Assembles the system prompt (book context + retrieved material) and the
 //! message list (conversation window + the new question).
 
+use serde::Deserialize;
+
 use super::db::{ChunkHit, Exchange, HighlightHit, Source};
 use super::llm::Role;
 
 const RELATED_ANSWER_CHARS: usize = 800;
 const EXCERPT_CHARS: usize = 120;
+
+/// Characters of the current chapter cut off before and after `chapter_text`
+/// when the chapter did not fit the frontend's budget (src/lib/bookText.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub struct ChapterOmitted {
+    pub before: u64,
+    pub after: u64,
+}
 
 pub struct PromptInput<'a> {
     pub title: &'a str,
@@ -13,6 +23,8 @@ pub struct PromptInput<'a> {
     pub percent: f64,
     pub chapter_title: Option<&'a str>,
     pub chapter_text: &'a str,
+    /// `None` when `chapter_text` is the whole chapter.
+    pub chapter_omitted: Option<ChapterOmitted>,
     pub passages: &'a [ChunkHit],
     pub highlights: &'a [HighlightHit],
     pub related: &'a [Exchange],
@@ -31,6 +43,7 @@ You are a reading companion inside Leafbound, an EPUB reader. The user is readin
 
 How to answer:
 - Answer from the book, and talk about the book itself the way a friend who has read it would: \"in this chapter\", \"earlier in the book\", \"when the two first meet\". The reader never sees the text below, only the book and your answer, so do not mention it: no \"the material\", \"the passages I have\", \"the parts I can see\" or notes on where a text breaks off.
+- The current_chapter text is the whole chapter unless its tag carries omitted_before and omitted_after: the number of characters of the chapter cut off before and after the text shown. Only then have you not read the whole chapter. For a question about the chapter as a whole, then say in a few words which part you can speak to (\"the first half of the chapter\", \"from the middle of the chapter on\") and answer for that part, instead of presenting it as the whole chapter or guessing the rest.
 - After a sentence that draws on a numbered part of the book, cite it as [#n], or as [Hn] for a highlight, one label per bracket: [#1][#3]. These labels are the only citations. The chapter the reader is in has no label; refer to it in words (\"in this chapter\") when that helps.
 - Labels restart with every question: only the labels below exist now, and your earlier answers in this conversation are replayed without theirs. Never repeat, correct or comment on citations from earlier answers.
 - If the book does not answer the question, say so plainly, for example \"The book doesn't say.\" or \"I couldn't find that in the book.\", instead of guessing. If you add general knowledge, keep it short and introduce it as such (\"Outside the book, ...\").
@@ -125,7 +138,12 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     system.push_str("</book>\n");
 
     if !input.chapter_text.trim().is_empty() {
-        system.push_str("\n<current_chapter>\n");
+        match input.chapter_omitted {
+            Some(ChapterOmitted { before, after }) => system.push_str(&format!(
+                "\n<current_chapter omitted_before=\"{before}\" omitted_after=\"{after}\">\n"
+            )),
+            None => system.push_str("\n<current_chapter>\n"),
+        }
         system.push_str(input.chapter_text.trim());
         system.push_str("\n</current_chapter>\n");
     }
@@ -271,6 +289,7 @@ mod tests {
             percent: 0.123,
             chapter_title: Some("第一章"),
             chapter_text: "本文",
+            chapter_omitted: None,
             passages: &passages,
             highlights: &highlights,
             related: &related,
@@ -311,6 +330,7 @@ mod tests {
             percent: 0.0,
             chapter_title: None,
             chapter_text: "",
+            chapter_omitted: None,
             passages: &[],
             highlights: &[],
             related: &[],
@@ -330,6 +350,37 @@ mod tests {
     }
 
     #[test]
+    fn partial_chapter_is_marked_with_what_is_left_out() {
+        let input = |omitted| PromptInput {
+            title: "T",
+            author: "",
+            percent: 0.5,
+            chapter_title: Some("第18章"),
+            chapter_text: "本文",
+            chapter_omitted: omitted,
+            passages: &[],
+            highlights: &[],
+            related: &[],
+            window: &[],
+            question: "この章の概要を説明",
+        };
+        let whole = build(&input(None));
+        assert!(whole
+            .system
+            .contains("<current_chapter>\n本文\n</current_chapter>"));
+
+        let partial = build(&input(Some(ChapterOmitted {
+            before: 35000,
+            after: 5000,
+        })));
+        assert!(partial
+            .system
+            .contains("<current_chapter omitted_before=\"35000\" omitted_after=\"5000\">\n本文\n"));
+        // The instructions explain the marker and allow saying which part was seen.
+        assert!(partial.system.contains("omitted_before"));
+    }
+
+    #[test]
     fn replayed_answers_carry_no_citation_labels() {
         let window = [exchange(
             "q1",
@@ -342,6 +393,7 @@ mod tests {
             percent: 0.0,
             chapter_title: None,
             chapter_text: "",
+            chapter_omitted: None,
             passages: &[],
             highlights: &[],
             related: &related,

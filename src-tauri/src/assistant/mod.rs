@@ -259,8 +259,12 @@ pub struct AskRequest {
     session_id: String,
     question: String,
     chapter_title: Option<String>,
-    /// Text around the reading position in the current chapter.
+    /// The current chapter's text: whole when it fits the frontend's budget,
+    /// otherwise a window around the reading position.
     chapter_text: String,
+    /// What that window left out; `None` when `chapter_text` is the whole chapter.
+    #[serde(default)]
+    chapter_omitted: Option<prompt::ChapterOmitted>,
     /// Spine index of the current chapter, when `chapter_text` covers all of it
     /// (its chunks are then left out of retrieval as duplicates).
     covered_section: Option<i64>,
@@ -419,6 +423,7 @@ pub async fn assistant_ask(
         percent: request.percent,
         chapter_title: request.chapter_title.as_deref(),
         chapter_text: &request.chapter_text,
+        chapter_omitted: request.chapter_omitted,
         passages: &passages,
         highlights: &highlights,
         related: &related,

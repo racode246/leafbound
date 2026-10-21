@@ -27,7 +27,7 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 
 ### Privacy and API keys
 
-- Indexing and the passage search run on your PC; each question makes two requests to the provider (the search passage, then the answer). Only your question, the current chapter (up to about 6,000 characters), the retrieved passages, highlights and notes, and the last 5 exchanges are sent to the provider you choose. With a local server such as Ollama, nothing leaves your machine.
+- Indexing and the passage search run on your PC; each question makes two requests to the provider (the search passage, then the answer). Only your question, the current chapter (up to about 60,000 characters), the retrieved passages, highlights and notes, and the last 5 exchanges are sent to the provider you choose. With a local server such as Ollama, nothing leaves your machine.
 - API keys are stored in Windows Credential Manager or the macOS Keychain. They are never written to the settings file, never shown again in the app, and only sent over HTTPS (plain HTTP is allowed for `localhost`).
 
 ## Features

@@ -31,6 +31,7 @@ import {
   MIN_SPREAD_WIDTH,
   type Annotation,
   type Book,
+  type ChapterOmitted,
   type HighlightColor,
   type Progress,
   type SearchHit,
@@ -683,6 +684,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const getAskContext = useCallback(async (): Promise<AskContext> => {
     const r = renditionRef.current
     let text = ''
+    let chapterOmitted: ChapterOmitted | null = null
     let coveredSection: number | null = null
     if (r) {
       const loc = (await Promise.resolve(r.currentLocation() as unknown)) as Location | null
@@ -692,9 +694,16 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         loc?.start?.index ?? null
       )
       text = ctx.text
-      coveredSection = ctx.complete ? ctx.sectionIndex : null
+      chapterOmitted = ctx.omitted
+      coveredSection = ctx.omitted === null ? ctx.sectionIndex : null
     }
-    return { chapterTitle: chapter || null, chapterText: text, coveredSection, percent }
+    return {
+      chapterTitle: chapter || null,
+      chapterText: text,
+      chapterOmitted,
+      coveredSection,
+      percent
+    }
   }, [chapter, percent])
 
   const chapterForHref = useCallback((href: string) => tocLabelForHref(tocRef.current, href), [])

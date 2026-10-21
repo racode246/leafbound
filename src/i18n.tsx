@@ -186,7 +186,7 @@ const ja = {
     'キーは macOS のキーチェーンに保存され、アプリの画面や設定ファイルには残りません。ローカルの LLM サーバーでは不要です。',
   'ai.settings.privacy': '送信される内容',
   'ai.settings.privacyText':
-    '質問、いま読んでいる章の本文 (最大約 6,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話が、上で設定した API に送られます。',
+    '質問、いま読んでいる章の本文 (最大約 60,000 字)、検索で見つかった本文・ハイライト・メモ、直近 5 往復の会話が、上で設定した API に送られます。',
   'ai.settings.history': '会話履歴',
   'ai.settings.clearHistory': 'この本の会話履歴を削除',
   'ai.settings.clearConfirm': 'この本についての会話履歴をすべて削除しますか？',
@@ -397,7 +397,7 @@ const en: Record<Key, string> = {
     'The key is kept in the macOS Keychain, never shown again or written to the settings file. Local LLM servers do not need one.',
   'ai.settings.privacy': 'What is sent',
   'ai.settings.privacyText':
-    'Your question, the current chapter (up to about 6,000 characters), matching passages, highlights and notes, and the last 5 exchanges are sent to the API configured above.',
+    'Your question, the current chapter (up to about 60,000 characters), matching passages, highlights and notes, and the last 5 exchanges are sent to the API configured above.',
   'ai.settings.history': 'Conversation history',
   'ai.settings.clearHistory': 'Delete conversations about this book',
   'ai.settings.clearConfirm': 'Delete all conversations about this book?',
