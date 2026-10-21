@@ -32,6 +32,7 @@ You are a reading companion inside Leafbound, an EPUB reader. The user is readin
 How to answer:
 - Answer from the book, and talk about the book itself the way a friend who has read it would: \"in this chapter\", \"earlier in the book\", \"when the two first meet\". The reader never sees the text below, only the book and your answer, so do not mention it: no \"the material\", \"the passages I have\", \"the parts I can see\" or notes on where a text breaks off.
 - After a sentence that draws on a numbered part of the book, cite it as [#n], or as [Hn] for a highlight, one label per bracket: [#1][#3]. These labels are the only citations. The chapter the reader is in has no label; refer to it in words (\"in this chapter\") when that helps.
+- Labels restart with every question: only the labels below exist now, and your earlier answers in this conversation are replayed without theirs. Never repeat, correct or comment on citations from earlier answers.
 - If the book does not answer the question, say so plainly, for example \"The book doesn't say.\" or \"I couldn't find that in the book.\", instead of guessing. If you add general knowledge, keep it short and introduce it as such (\"Outside the book, ...\").
 - Answer in the same language as the question.
 - Write plain text without Markdown formatting (no headings, bold or tables). Short lines starting with \"- \" are fine for lists.
@@ -49,6 +50,60 @@ fn truncate(s: &str, max: usize) -> String {
 
 fn one_line(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Byte length of a citation label body such as `#12]` or `H3]` at the start
+/// of `s` (the text right after a `[`).
+fn label_len(s: &str) -> Option<usize> {
+    let mut chars = s.char_indices();
+    let (_, first) = chars.next()?;
+    if first != '#' && first != 'H' {
+        return None;
+    }
+    let mut digits = 0;
+    for (i, c) in chars {
+        if c.is_ascii_digit() {
+            digits += 1;
+        } else if c == ']' && digits > 0 {
+            return Some(i + 1);
+        } else {
+            return None;
+        }
+    }
+    None
+}
+
+/// Removes `[#n]` / `[Hn]` citation labels from an answer. The labels name
+/// the passage list of the question they answered, so an answer replayed
+/// under a later question must not carry them. Spacing around a removed label
+/// is mended so "seconds [#1]." reads "seconds." and "a [#1] b" reads "a b".
+pub fn strip_citations(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find('[') {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + 1..];
+        match label_len(after) {
+            Some(len) => {
+                let mut following = &after[len..];
+                if out.ends_with(' ') && following.starts_with(|c: char| ".,;:!?)".contains(c)) {
+                    out.pop();
+                }
+                if following.starts_with(' ')
+                    && (out.is_empty() || out.ends_with(' ') || out.ends_with('\n'))
+                {
+                    following = &following[1..];
+                }
+                rest = following;
+            }
+            None => {
+                out.push('[');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 pub fn build(input: &PromptInput<'_>) -> Prompt {
@@ -121,7 +176,7 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
             system.push_str(&format!(
                 "Q: {}\nA: {}\n\n",
                 e.question.trim(),
-                truncate(&e.answer, RELATED_ANSWER_CHARS)
+                truncate(&strip_citations(&e.answer), RELATED_ANSWER_CHARS)
             ));
         }
         system.push_str("</earlier_conversations>\n");
@@ -130,7 +185,7 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     let mut messages = Vec::with_capacity(input.window.len() * 2 + 1);
     for e in input.window {
         messages.push((Role::User, e.question.clone()));
-        messages.push((Role::Assistant, e.answer.clone()));
+        messages.push((Role::Assistant, strip_citations(&e.answer)));
     }
     messages.push((Role::User, input.question.to_string()));
 
@@ -169,7 +224,11 @@ pub fn search_text(question: &str, previous: Option<&Exchange>) -> String {
 
 /// Text embedded for a finished exchange so it can be found later.
 pub fn exchange_text(question: &str, answer: &str) -> String {
-    format!("Q: {}\nA: {}", question.trim(), answer.trim())
+    format!(
+        "Q: {}\nA: {}",
+        question.trim(),
+        strip_citations(answer).trim()
+    )
 }
 
 #[cfg(test)]
@@ -268,6 +327,46 @@ mod tests {
             assert!(!prompt.system.contains(tag), "{tag}");
         }
         assert_eq!(prompt.messages.len(), 1);
+    }
+
+    #[test]
+    fn replayed_answers_carry_no_citation_labels() {
+        let window = [exchange(
+            "q1",
+            "The lamp turns every fifteen seconds [#1][#3]. Your note says so too [H2].",
+        )];
+        let related = [exchange("q0", "Earlier answer [#2].")];
+        let prompt = build(&PromptInput {
+            title: "T",
+            author: "",
+            percent: 0.0,
+            chapter_title: None,
+            chapter_text: "",
+            passages: &[],
+            highlights: &[],
+            related: &related,
+            window: &window,
+            question: "q2",
+        });
+        let replayed = &prompt.messages[1].1;
+        assert!(!replayed.contains("[#"), "{replayed}");
+        assert!(!replayed.contains("[H"), "{replayed}");
+        assert_eq!(
+            replayed,
+            "The lamp turns every fifteen seconds. Your note says so too."
+        );
+        assert!(prompt.system.contains("A: Earlier answer."));
+        assert!(!prompt.system.contains("[#2]"));
+        // The instructions say labels restart with every question.
+        assert!(prompt.system.contains("restart"));
+    }
+
+    #[test]
+    fn strip_citations_keeps_text_and_spacing() {
+        assert_eq!(strip_citations("a [#1] b"), "a b");
+        assert_eq!(strip_citations("文です[#1]。次[H12]。"), "文です。次。");
+        assert_eq!(strip_citations("[#1][#2] start"), "start");
+        assert_eq!(strip_citations("no labels [x] (#1)"), "no labels [x] (#1)");
     }
 
     #[test]
