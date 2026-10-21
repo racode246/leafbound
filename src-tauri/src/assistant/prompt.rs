@@ -224,19 +224,75 @@ pub fn hypothetical_passage(title: &str, author: &str, chapter_text: &str) -> St
     };
     format!(
         "You help search inside the book \"{title}\"{by}. Write the passage of the book that would answer the \
-         user's question: 2-4 sentences of narrative text in the book's own language and style (see the excerpt), \
-         naming the people, places and events involved. If you do not know the book, write what such a passage \
-         would most likely say. Output only the passage.\n\n<excerpt>\n{}\n</excerpt>",
+         user's question: 2-4 sentences in the book's own language and kind of writing (see the excerpt): \
+         narrative for a story, explanation for non-fiction, using the names, terms and ideas the book itself \
+         uses. For a question about the chapter the reader is in, write what that chapter covers. If you do not \
+         know the book, write what such a passage would most likely say. Output only the passage.\n\n\
+         <excerpt>\n{}\n</excerpt>",
         truncate(&one_line(chapter_text), 400)
     )
 }
 
+/// Non-whitespace characters at or above which a question is taken to say
+/// enough on its own ("Who paid Wickham?" has 15, "それはなぜ？" 6).
+const STANDALONE_CHARS: usize = 12;
+
+/// Whether a question can be searched without the question before it: it
+/// names a chapter ("この章", "chapter 18") or is more than a few words.
+fn stands_alone(question: &str) -> bool {
+    let q = question.trim();
+    let lower = q.to_lowercase();
+    if lower.contains("this chapter") || lower.contains("current chapter") {
+        return true;
+    }
+    if names_chapter_ja(q) || names_chapter_en(&lower) {
+        return true;
+    }
+    q.chars().filter(|c| !c.is_whitespace()).count() >= STANDALONE_CHARS
+}
+
+/// "この章", "本章", "当章", "18章", "第３章", "十八章".
+fn names_chapter_ja(q: &str) -> bool {
+    let chars: Vec<char> = q.chars().collect();
+    chars.iter().enumerate().any(|(i, &c)| {
+        c == '章'
+            && i > 0
+            && (matches!(chars[i - 1], '本' | '当' | '第')
+                || (i > 1 && chars[i - 2] == 'こ' && chars[i - 1] == 'の')
+                || chars[i - 1].is_numeric()
+                || "一二三四五六七八九十百".contains(chars[i - 1]))
+    })
+}
+
+/// "chapter 18", "chapter three".
+fn names_chapter_en(lower: &str) -> bool {
+    lower
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|w| {
+            w[0] == "chapter"
+                && (w[1].chars().next().is_some_and(|c| c.is_ascii_digit())
+                    || [
+                        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+                        "ten",
+                    ]
+                    .iter()
+                    .any(|n| w[1].trim_end_matches(|c: char| !c.is_alphanumeric()) == *n))
+        })
+}
+
 /// Text used to look up material for a question. A follow-up such as "why?"
-/// says little on its own, so the previous question is prepended.
+/// says little on its own, so the previous question is prepended; a question
+/// that stands on its own (see `stands_alone`) is searched as it is, so
+/// "summarize this chapter" after "summarize Google's tools" does not search
+/// for the tools again.
 pub fn search_text(question: &str, previous: Option<&Exchange>) -> String {
     match previous {
-        Some(prev) => format!("{} {}", prev.question.trim(), question.trim()),
-        None => question.trim().to_string(),
+        Some(prev) if !stands_alone(question) => {
+            format!("{} {}", prev.question.trim(), question.trim())
+        }
+        _ => question.trim().to_string(),
     }
 }
 
@@ -425,6 +481,37 @@ mod tests {
     fn follow_up_search_includes_previous_question() {
         let prev = exchange("主人公は誰？", "a");
         assert_eq!(search_text("なぜ？", Some(&prev)), "主人公は誰？ なぜ？");
+        assert_eq!(
+            search_text("それはなぜ？", Some(&prev)),
+            "主人公は誰？ それはなぜ？"
+        );
+        assert_eq!(search_text("Why?", Some(&prev)), "主人公は誰？ Why?");
         assert_eq!(search_text(" なぜ？ ", None), "なぜ？");
+    }
+
+    #[test]
+    fn standalone_question_is_searched_on_its_own() {
+        let prev = exchange("Google のツールをまとめて", "a");
+        for q in [
+            "この章の概要を説明",
+            "本章の要点は？",
+            "18章すべてを読んで",
+            "第３章の結論は？",
+            "Summarize this chapter",
+            "What does chapter 18 say about tools?",
+            "ダーシーの手紙にはウィッカムについて何が書かれていた？",
+            "What did Darcy's letter say about Wickham?",
+        ] {
+            assert_eq!(search_text(q, Some(&prev)), q, "{q}");
+        }
+    }
+
+    #[test]
+    fn search_prompt_fits_any_genre() {
+        let system = hypothetical_passage("T", "A", "excerpt");
+        assert!(system.starts_with("You help search inside the book"));
+        assert!(!system.contains("people, places and events"));
+        assert!(system.contains("non-fiction"));
+        assert!(system.contains("<excerpt>\nexcerpt\n</excerpt>"));
     }
 }
