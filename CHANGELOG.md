@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/racode246/leafbound/compare/v0.7.0...v0.7.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** update bundled CA roots for the eMudhra intermediate CA compromise ([#76](https://github.com/racode246/leafbound/issues/76)) ([c83d49e](https://github.com/racode246/leafbound/commit/c83d49ee818b93fa97578955c4c1d09e57379241))
+
 ## [0.7.0](https://github.com/racode246/leafbound/compare/v0.6.0...v0.7.0) (2026-10-21)
 
 
