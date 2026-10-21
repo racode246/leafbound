@@ -12,7 +12,7 @@ Leafbound is built with [Tauri 2](https://tauri.app/) (Rust), React, TypeScript 
 ## Ask AI about your book
 
 - Ask in plain language, in any language; the answer comes back in the language of the question and streams in as it is written.
-- Answers draw on four sources: the chapter you are reading (around your position), passages retrieved from the whole book, your highlights and notes, and earlier conversations about the same book.
+- Answers draw on four sources: the chapter you are reading (whole; only the part around your position when it exceeds 60,000 characters), passages retrieved from the whole book, your highlights and notes, and earlier conversations about the same book.
 - The last 5 question/answer pairs are kept as conversation context, so follow-ups such as "why?" work. Older conversations are not forgotten: they are found again by similarity when they become relevant.
 - Every answer cites what it used, `[#1]` for a passage and `[H1]` for a highlight. Click a citation to jump to that place in the book.
 - Works with Anthropic (default model `claude-sonnet-5-5`) or any OpenAI-compatible API: OpenAI, OpenRouter, Ollama, LM Studio and others. Provider, model and endpoint are set under ⚙ in the panel.
