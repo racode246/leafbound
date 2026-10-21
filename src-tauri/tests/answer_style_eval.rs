@@ -164,7 +164,7 @@ fn answers_talk_about_the_book() {
             .embed_passages(std::slice::from_ref(&passage))
             .unwrap()
             .remove(0);
-        let passages = find_passages(&db, BOOK_ID, &h, covered).unwrap();
+        let passages = find_passages(&db, BOOK_ID, &h, Some(*reading as i64), covered).unwrap();
         let title = common::chapter_title(*reading);
         let built = prompt::build(&prompt::PromptInput {
             title: "Pride and Prejudice",

@@ -265,6 +265,10 @@ pub struct AskRequest {
     /// What that window left out; `None` when `chapter_text` is the whole chapter.
     #[serde(default)]
     chapter_omitted: Option<prompt::ChapterOmitted>,
+    /// Spine index of the current chapter. When `chapter_text` holds only part
+    /// of it, its chunks are exempt from the per-section cap in retrieval.
+    #[serde(default)]
+    current_section: Option<i64>,
     /// Spine index of the current chapter, when `chapter_text` covers all of it
     /// (its chunks are then left out of retrieval as duplicates).
     covered_section: Option<i64>,
@@ -397,6 +401,7 @@ pub async fn assistant_ask(
                 &db,
                 &request.book_id,
                 &passage_query,
+                request.current_section,
                 request.covered_section,
             )?,
             db.search_highlights(
@@ -480,18 +485,27 @@ pub async fn assistant_ask(
 }
 
 /// Book passages for a search vector: the nearest chunks, at most
-/// `PASSAGES_PER_SECTION` from one chapter. `exclude_section` is a chapter
-/// already sent in full.
+/// `PASSAGES_PER_SECTION` from one chapter. `current_section` is the chapter
+/// being read, which may fill more of the hits since questions are usually
+/// about it; `exclude_section` is a chapter already sent in full.
 pub fn find_passages(
     db: &AssistantDb,
     book_id: &str,
     query: &[f32],
+    current_section: Option<i64>,
     exclude_section: Option<i64>,
 ) -> Result<Vec<db::ChunkHit>, String> {
     let ranked = db.search_chunks(book_id, CHUNK_INDEX, query, CANDIDATES, exclude_section)?;
     let ids: Vec<i64> = ranked.iter().map(|c| c.id).collect();
     let section_of: HashMap<i64, i64> = ranked.iter().map(|c| (c.id, c.section)).collect();
-    let picked = search::spread(&ids, &section_of, PASSAGE_HITS, PASSAGES_PER_SECTION);
+    let uncapped = current_section.filter(|s| Some(*s) != exclude_section);
+    let picked = search::spread(
+        &ids,
+        &section_of,
+        PASSAGE_HITS,
+        PASSAGES_PER_SECTION,
+        uncapped,
+    );
     let mut by_id: HashMap<i64, db::ChunkHit> = ranked.into_iter().map(|c| (c.id, c)).collect();
     Ok(picked
         .into_iter()
@@ -598,7 +612,7 @@ mod tests {
             &[(input("far"), vec![0.0, 1.0])],
         )
         .unwrap();
-        let hits = find_passages(&db, "b", &[1.0, 0.0], None).unwrap();
+        let hits = find_passages(&db, "b", &[1.0, 0.0], None, None).unwrap();
         // Five near chunks in one section, but only PASSAGES_PER_SECTION of them are kept.
         assert_eq!(
             hits.iter().filter(|h| h.section == 0).count(),
@@ -606,9 +620,14 @@ mod tests {
         );
         assert!(hits.iter().any(|h| h.text == "far"));
         // A chapter that is already in the prompt is left out.
-        assert!(find_passages(&db, "b", &[1.0, 0.0], Some(0))
+        assert!(find_passages(&db, "b", &[1.0, 0.0], None, Some(0))
             .unwrap()
             .iter()
             .all(|h| h.section != 0));
+        // The chapter being read, when the prompt holds only part of it, is not capped.
+        let current = find_passages(&db, "b", &[1.0, 0.0], Some(0), None).unwrap();
+        assert_eq!(current.iter().filter(|h| h.section == 0).count(), 5);
+        assert!(current.iter().filter(|h| h.section == 0).count() > PASSAGES_PER_SECTION);
+        assert!(current.iter().any(|h| h.text == "far"));
     }
 }

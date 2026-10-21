@@ -685,6 +685,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     const r = renditionRef.current
     let text = ''
     let chapterOmitted: ChapterOmitted | null = null
+    let currentSection: number | null = null
     let coveredSection: number | null = null
     if (r) {
       const loc = (await Promise.resolve(r.currentLocation() as unknown)) as Location | null
@@ -695,12 +696,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       )
       text = ctx.text
       chapterOmitted = ctx.omitted
+      currentSection = ctx.sectionIndex
       coveredSection = ctx.omitted === null ? ctx.sectionIndex : null
     }
     return {
       chapterTitle: chapter || null,
       chapterText: text,
       chapterOmitted,
+      currentSection,
       coveredSection,
       percent
     }

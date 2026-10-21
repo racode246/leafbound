@@ -21,7 +21,12 @@ import Icon from './Icon'
 
 export type AskContext = Pick<
   AskRequest,
-  'chapterTitle' | 'chapterText' | 'chapterOmitted' | 'coveredSection' | 'percent'
+  | 'chapterTitle'
+  | 'chapterText'
+  | 'chapterOmitted'
+  | 'currentSection'
+  | 'coveredSection'
+  | 'percent'
 >
 
 /** Text selected in the book to quote into the question; a new `id` quotes again. */

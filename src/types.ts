@@ -147,6 +147,8 @@ export interface AskRequest {
   chapterText: string
   /** What the window left out; null when chapterText is the whole chapter. */
   chapterOmitted: ChapterOmitted | null
+  /** Spine index of the current chapter; its passages are preferred in retrieval when it was cut. */
+  currentSection: number | null
   /** Spine index of the current chapter when chapterText covers all of it. */
   coveredSection: number | null
   percent: number
