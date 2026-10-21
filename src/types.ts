@@ -131,14 +131,24 @@ export type AskEvent =
   | { type: 'sources'; sources: AssistantSource[] }
   | { type: 'delta'; text: string }
 
+/** Characters of the current chapter cut off before and after the text sent. */
+export interface ChapterOmitted {
+  before: number
+  after: number
+}
+
 export interface AskRequest {
   requestId: string
   bookId: string
   sessionId: string
   question: string
   chapterTitle: string | null
-  /** Text around the reading position in the current chapter. */
+  /** The current chapter's text, whole when it fits the budget, else a window around the reading position. */
   chapterText: string
+  /** What the window left out; null when chapterText is the whole chapter. */
+  chapterOmitted: ChapterOmitted | null
+  /** Spine index of the current chapter; its passages are preferred in retrieval when it was cut. */
+  currentSection: number | null
   /** Spine index of the current chapter when chapterText covers all of it. */
   coveredSection: number | null
   percent: number

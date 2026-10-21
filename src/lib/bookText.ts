@@ -1,10 +1,16 @@
 import ePub, { type Book as EpubBook, type Contents, type Rendition } from 'epubjs'
-import type { IndexChunk } from '../types'
+import type { ChapterOmitted, IndexChunk } from '../types'
 import { chunkRanges } from './chunk'
 
-/** Current-chapter text handed to the LLM. */
-const CHAPTER_CONTEXT_CHARS = 6000
-const CONTEXT_BEFORE_POSITION = 1500
+/**
+ * Budget for the current-chapter text handed to the LLM. A chapter within it
+ * goes whole, so "summarize this chapter" sees all of it; a longer one is cut
+ * to a window around the reading position. 60k characters is roughly 40k
+ * tokens of Japanese and covers the longest chapters of ordinary EPUBs.
+ */
+export const CHAPTER_CONTEXT_CHARS = 60_000
+/** How far before the reading position the window of a cut chapter starts. */
+const CONTEXT_BEFORE_POSITION = 15_000
 
 const BLOCK_SELECTOR =
   'p,div,li,h1,h2,h3,h4,h5,h6,blockquote,section,article,td,th,dt,dd,pre,figcaption'
@@ -159,11 +165,29 @@ export async function indexBookText(
 export interface ChapterContext {
   text: string
   sectionIndex: number | null
-  /** The whole chapter fit into `text`. */
-  complete: boolean
+  /** Characters of the chapter cut off around `text`; null when the chapter is whole. */
+  omitted: ChapterOmitted | null
 }
 
-/** Text of the displayed chapter around `cfi`, trimmed to CHAPTER_CONTEXT_CHARS. */
+/**
+ * The part of a chapter's text that goes to the LLM: all of it when it fits
+ * CHAPTER_CONTEXT_CHARS, otherwise a window of that size starting
+ * CONTEXT_BEFORE_POSITION characters before the reading `position`.
+ */
+export function chapterWindow(
+  text: string,
+  position: number
+): { text: string; omitted: ChapterOmitted | null } {
+  if (text.length <= CHAPTER_CONTEXT_CHARS) return { text, omitted: null }
+  const start = Math.max(
+    0,
+    Math.min(position - CONTEXT_BEFORE_POSITION, text.length - CHAPTER_CONTEXT_CHARS)
+  )
+  const end = start + CHAPTER_CONTEXT_CHARS
+  return { text: text.slice(start, end), omitted: { before: start, after: text.length - end } }
+}
+
+/** Text of the displayed chapter (see `chapterWindow`) around `cfi`. */
 export function chapterContext(
   rendition: Rendition,
   cfi: string | null,
@@ -172,11 +196,8 @@ export function chapterContext(
   // epub.js types declare a single Contents, but the runtime returns an array.
   const all = rendition.getContents() as unknown as (Contents & { sectionIndex: number })[]
   const contents = all.find((c) => c.sectionIndex === sectionIndex) ?? all[0]
-  if (!contents) return { text: '', sectionIndex: null, complete: false }
+  if (!contents) return { text: '', sectionIndex: null, omitted: null }
   const { text, spans } = collectText(contents.document)
-  if (text.length <= CHAPTER_CONTEXT_CHARS) {
-    return { text, sectionIndex: contents.sectionIndex, complete: true }
-  }
   let position = 0
   if (cfi) {
     try {
@@ -187,13 +208,5 @@ export function chapterContext(
       position = 0
     }
   }
-  const start = Math.max(
-    0,
-    Math.min(position - CONTEXT_BEFORE_POSITION, text.length - CHAPTER_CONTEXT_CHARS)
-  )
-  return {
-    text: text.slice(start, start + CHAPTER_CONTEXT_CHARS),
-    sectionIndex: contents.sectionIndex,
-    complete: false
-  }
+  return { ...chapterWindow(text, position), sectionIndex: contents.sectionIndex }
 }

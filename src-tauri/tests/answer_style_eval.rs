@@ -30,7 +30,7 @@ use leafbound_lib::assistant::{find_passages, prompt, secrets};
 
 const MODEL: &str = "claude-sonnet-5-5";
 /// CHAPTER_CONTEXT_CHARS in src/lib/bookText.ts.
-const CHAPTER_CONTEXT_CHARS: usize = 6000;
+const CHAPTER_CONTEXT_CHARS: usize = 60_000;
 
 /// (question, chapter the reader is in)
 const QUESTIONS: &[(&str, usize)] = &[
@@ -147,9 +147,14 @@ fn answers_talk_about_the_book() {
     let mut rows = Vec::new();
     for (n, (question, reading)) in QUESTIONS.iter().enumerate() {
         let full = &chapters[reading - 1];
-        let complete = full.chars().count() <= CHAPTER_CONTEXT_CHARS;
+        let total = full.chars().count();
+        let complete = total <= CHAPTER_CONTEXT_CHARS;
         let chapter_text: String = full.chars().take(CHAPTER_CONTEXT_CHARS).collect();
         let covered = complete.then_some(*reading as i64);
+        let omitted = (!complete).then(|| prompt::ChapterOmitted {
+            before: 0,
+            after: (total - CHAPTER_CONTEXT_CHARS) as u64,
+        });
 
         let passage = ask(
             prompt::hypothetical_passage("Pride and Prejudice", "Jane Austen", &chapter_text),
@@ -159,7 +164,7 @@ fn answers_talk_about_the_book() {
             .embed_passages(std::slice::from_ref(&passage))
             .unwrap()
             .remove(0);
-        let passages = find_passages(&db, BOOK_ID, &h, covered).unwrap();
+        let passages = find_passages(&db, BOOK_ID, &h, Some(*reading as i64), covered).unwrap();
         let title = common::chapter_title(*reading);
         let built = prompt::build(&prompt::PromptInput {
             title: "Pride and Prejudice",
@@ -167,6 +172,7 @@ fn answers_talk_about_the_book() {
             percent: (*reading as f64 - 0.5) / chapters.len() as f64,
             chapter_title: Some(&title),
             chapter_text: &chapter_text,
+            chapter_omitted: omitted,
             passages: &passages,
             highlights: &[],
             related: &[],

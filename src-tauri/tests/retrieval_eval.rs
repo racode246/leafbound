@@ -111,8 +111,8 @@ fn retrieval_finds_the_answering_chapter() {
             .remove(0);
         let got = [
             sections(db.search_chunks(BOOK_ID, CHUNK_INDEX, &q, 6, None).unwrap()),
-            sections(find_passages(&db, BOOK_ID, &q, None).unwrap()),
-            sections(find_passages(&db, BOOK_ID, &h, None).unwrap()),
+            sections(find_passages(&db, BOOK_ID, &q, None, None).unwrap()),
+            sections(find_passages(&db, BOOK_ID, &h, None, None).unwrap()),
         ];
         let mut marks = String::new();
         let mut detail = String::new();

@@ -1,11 +1,21 @@
 //! Assembles the system prompt (book context + retrieved material) and the
 //! message list (conversation window + the new question).
 
+use serde::Deserialize;
+
 use super::db::{ChunkHit, Exchange, HighlightHit, Source};
 use super::llm::Role;
 
 const RELATED_ANSWER_CHARS: usize = 800;
 const EXCERPT_CHARS: usize = 120;
+
+/// Characters of the current chapter cut off before and after `chapter_text`
+/// when the chapter did not fit the frontend's budget (src/lib/bookText.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub struct ChapterOmitted {
+    pub before: u64,
+    pub after: u64,
+}
 
 pub struct PromptInput<'a> {
     pub title: &'a str,
@@ -13,6 +23,8 @@ pub struct PromptInput<'a> {
     pub percent: f64,
     pub chapter_title: Option<&'a str>,
     pub chapter_text: &'a str,
+    /// `None` when `chapter_text` is the whole chapter.
+    pub chapter_omitted: Option<ChapterOmitted>,
     pub passages: &'a [ChunkHit],
     pub highlights: &'a [HighlightHit],
     pub related: &'a [Exchange],
@@ -31,7 +43,9 @@ You are a reading companion inside Leafbound, an EPUB reader. The user is readin
 
 How to answer:
 - Answer from the book, and talk about the book itself the way a friend who has read it would: \"in this chapter\", \"earlier in the book\", \"when the two first meet\". The reader never sees the text below, only the book and your answer, so do not mention it: no \"the material\", \"the passages I have\", \"the parts I can see\" or notes on where a text breaks off.
+- The current_chapter text is the whole chapter unless its tag carries omitted_before and omitted_after: the number of characters of the chapter cut off before and after the text shown. Only then have you not read the whole chapter. For a question about the chapter as a whole, then say in a few words which part you can speak to (\"the first half of the chapter\", \"from the middle of the chapter on\") and answer for that part, instead of presenting it as the whole chapter or guessing the rest.
 - After a sentence that draws on a numbered part of the book, cite it as [#n], or as [Hn] for a highlight, one label per bracket: [#1][#3]. These labels are the only citations. The chapter the reader is in has no label; refer to it in words (\"in this chapter\") when that helps.
+- Labels restart with every question: only the labels below exist now, and your earlier answers in this conversation are replayed without theirs. Never repeat, correct or comment on citations from earlier answers.
 - If the book does not answer the question, say so plainly, for example \"The book doesn't say.\" or \"I couldn't find that in the book.\", instead of guessing. If you add general knowledge, keep it short and introduce it as such (\"Outside the book, ...\").
 - Answer in the same language as the question.
 - Write plain text without Markdown formatting (no headings, bold or tables). Short lines starting with \"- \" are fine for lists.
@@ -49,6 +63,60 @@ fn truncate(s: &str, max: usize) -> String {
 
 fn one_line(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Byte length of a citation label body such as `#12]` or `H3]` at the start
+/// of `s` (the text right after a `[`).
+fn label_len(s: &str) -> Option<usize> {
+    let mut chars = s.char_indices();
+    let (_, first) = chars.next()?;
+    if first != '#' && first != 'H' {
+        return None;
+    }
+    let mut digits = 0;
+    for (i, c) in chars {
+        if c.is_ascii_digit() {
+            digits += 1;
+        } else if c == ']' && digits > 0 {
+            return Some(i + 1);
+        } else {
+            return None;
+        }
+    }
+    None
+}
+
+/// Removes `[#n]` / `[Hn]` citation labels from an answer. The labels name
+/// the passage list of the question they answered, so an answer replayed
+/// under a later question must not carry them. Spacing around a removed label
+/// is mended so "seconds [#1]." reads "seconds." and "a [#1] b" reads "a b".
+pub fn strip_citations(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find('[') {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + 1..];
+        match label_len(after) {
+            Some(len) => {
+                let mut following = &after[len..];
+                if out.ends_with(' ') && following.starts_with(|c: char| ".,;:!?)".contains(c)) {
+                    out.pop();
+                }
+                if following.starts_with(' ')
+                    && (out.is_empty() || out.ends_with(' ') || out.ends_with('\n'))
+                {
+                    following = &following[1..];
+                }
+                rest = following;
+            }
+            None => {
+                out.push('[');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 pub fn build(input: &PromptInput<'_>) -> Prompt {
@@ -70,7 +138,12 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     system.push_str("</book>\n");
 
     if !input.chapter_text.trim().is_empty() {
-        system.push_str("\n<current_chapter>\n");
+        match input.chapter_omitted {
+            Some(ChapterOmitted { before, after }) => system.push_str(&format!(
+                "\n<current_chapter omitted_before=\"{before}\" omitted_after=\"{after}\">\n"
+            )),
+            None => system.push_str("\n<current_chapter>\n"),
+        }
         system.push_str(input.chapter_text.trim());
         system.push_str("\n</current_chapter>\n");
     }
@@ -121,7 +194,7 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
             system.push_str(&format!(
                 "Q: {}\nA: {}\n\n",
                 e.question.trim(),
-                truncate(&e.answer, RELATED_ANSWER_CHARS)
+                truncate(&strip_citations(&e.answer), RELATED_ANSWER_CHARS)
             ));
         }
         system.push_str("</earlier_conversations>\n");
@@ -130,7 +203,7 @@ pub fn build(input: &PromptInput<'_>) -> Prompt {
     let mut messages = Vec::with_capacity(input.window.len() * 2 + 1);
     for e in input.window {
         messages.push((Role::User, e.question.clone()));
-        messages.push((Role::Assistant, e.answer.clone()));
+        messages.push((Role::Assistant, strip_citations(&e.answer)));
     }
     messages.push((Role::User, input.question.to_string()));
 
@@ -151,25 +224,85 @@ pub fn hypothetical_passage(title: &str, author: &str, chapter_text: &str) -> St
     };
     format!(
         "You help search inside the book \"{title}\"{by}. Write the passage of the book that would answer the \
-         user's question: 2-4 sentences of narrative text in the book's own language and style (see the excerpt), \
-         naming the people, places and events involved. If you do not know the book, write what such a passage \
-         would most likely say. Output only the passage.\n\n<excerpt>\n{}\n</excerpt>",
+         user's question: 2-4 sentences in the book's own language and kind of writing (see the excerpt): \
+         narrative for a story, explanation for non-fiction, using the names, terms and ideas the book itself \
+         uses. For a question about the chapter the reader is in, write what that chapter covers. If you do not \
+         know the book, write what such a passage would most likely say. Output only the passage.\n\n\
+         <excerpt>\n{}\n</excerpt>",
         truncate(&one_line(chapter_text), 400)
     )
 }
 
+/// Non-whitespace characters at or above which a question is taken to say
+/// enough on its own ("Who paid Wickham?" has 15, "それはなぜ？" 6).
+const STANDALONE_CHARS: usize = 12;
+
+/// Whether a question can be searched without the question before it: it
+/// names a chapter ("この章", "chapter 18") or is more than a few words.
+fn stands_alone(question: &str) -> bool {
+    let q = question.trim();
+    let lower = q.to_lowercase();
+    if lower.contains("this chapter") || lower.contains("current chapter") {
+        return true;
+    }
+    if names_chapter_ja(q) || names_chapter_en(&lower) {
+        return true;
+    }
+    q.chars().filter(|c| !c.is_whitespace()).count() >= STANDALONE_CHARS
+}
+
+/// "この章", "本章", "当章", "18章", "第３章", "十八章".
+fn names_chapter_ja(q: &str) -> bool {
+    let chars: Vec<char> = q.chars().collect();
+    chars.iter().enumerate().any(|(i, &c)| {
+        c == '章'
+            && i > 0
+            && (matches!(chars[i - 1], '本' | '当' | '第')
+                || (i > 1 && chars[i - 2] == 'こ' && chars[i - 1] == 'の')
+                || chars[i - 1].is_numeric()
+                || "一二三四五六七八九十百".contains(chars[i - 1]))
+    })
+}
+
+/// "chapter 18", "chapter three".
+fn names_chapter_en(lower: &str) -> bool {
+    lower
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|w| {
+            w[0] == "chapter"
+                && (w[1].chars().next().is_some_and(|c| c.is_ascii_digit())
+                    || [
+                        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+                        "ten",
+                    ]
+                    .iter()
+                    .any(|n| w[1].trim_end_matches(|c: char| !c.is_alphanumeric()) == *n))
+        })
+}
+
 /// Text used to look up material for a question. A follow-up such as "why?"
-/// says little on its own, so the previous question is prepended.
+/// says little on its own, so the previous question is prepended; a question
+/// that stands on its own (see `stands_alone`) is searched as it is, so
+/// "summarize this chapter" after "summarize Google's tools" does not search
+/// for the tools again.
 pub fn search_text(question: &str, previous: Option<&Exchange>) -> String {
     match previous {
-        Some(prev) => format!("{} {}", prev.question.trim(), question.trim()),
-        None => question.trim().to_string(),
+        Some(prev) if !stands_alone(question) => {
+            format!("{} {}", prev.question.trim(), question.trim())
+        }
+        _ => question.trim().to_string(),
     }
 }
 
 /// Text embedded for a finished exchange so it can be found later.
 pub fn exchange_text(question: &str, answer: &str) -> String {
-    format!("Q: {}\nA: {}", question.trim(), answer.trim())
+    format!(
+        "Q: {}\nA: {}",
+        question.trim(),
+        strip_citations(answer).trim()
+    )
 }
 
 #[cfg(test)]
@@ -212,6 +345,7 @@ mod tests {
             percent: 0.123,
             chapter_title: Some("第一章"),
             chapter_text: "本文",
+            chapter_omitted: None,
             passages: &passages,
             highlights: &highlights,
             related: &related,
@@ -252,6 +386,7 @@ mod tests {
             percent: 0.0,
             chapter_title: None,
             chapter_text: "",
+            chapter_omitted: None,
             passages: &[],
             highlights: &[],
             related: &[],
@@ -271,9 +406,112 @@ mod tests {
     }
 
     #[test]
+    fn partial_chapter_is_marked_with_what_is_left_out() {
+        let input = |omitted| PromptInput {
+            title: "T",
+            author: "",
+            percent: 0.5,
+            chapter_title: Some("第18章"),
+            chapter_text: "本文",
+            chapter_omitted: omitted,
+            passages: &[],
+            highlights: &[],
+            related: &[],
+            window: &[],
+            question: "この章の概要を説明",
+        };
+        let whole = build(&input(None));
+        assert!(whole
+            .system
+            .contains("<current_chapter>\n本文\n</current_chapter>"));
+
+        let partial = build(&input(Some(ChapterOmitted {
+            before: 35000,
+            after: 5000,
+        })));
+        assert!(partial
+            .system
+            .contains("<current_chapter omitted_before=\"35000\" omitted_after=\"5000\">\n本文\n"));
+        // The instructions explain the marker and allow saying which part was seen.
+        assert!(partial.system.contains("omitted_before"));
+    }
+
+    #[test]
+    fn replayed_answers_carry_no_citation_labels() {
+        let window = [exchange(
+            "q1",
+            "The lamp turns every fifteen seconds [#1][#3]. Your note says so too [H2].",
+        )];
+        let related = [exchange("q0", "Earlier answer [#2].")];
+        let prompt = build(&PromptInput {
+            title: "T",
+            author: "",
+            percent: 0.0,
+            chapter_title: None,
+            chapter_text: "",
+            chapter_omitted: None,
+            passages: &[],
+            highlights: &[],
+            related: &related,
+            window: &window,
+            question: "q2",
+        });
+        let replayed = &prompt.messages[1].1;
+        assert!(!replayed.contains("[#"), "{replayed}");
+        assert!(!replayed.contains("[H"), "{replayed}");
+        assert_eq!(
+            replayed,
+            "The lamp turns every fifteen seconds. Your note says so too."
+        );
+        assert!(prompt.system.contains("A: Earlier answer."));
+        assert!(!prompt.system.contains("[#2]"));
+        // The instructions say labels restart with every question.
+        assert!(prompt.system.contains("restart"));
+    }
+
+    #[test]
+    fn strip_citations_keeps_text_and_spacing() {
+        assert_eq!(strip_citations("a [#1] b"), "a b");
+        assert_eq!(strip_citations("文です[#1]。次[H12]。"), "文です。次。");
+        assert_eq!(strip_citations("[#1][#2] start"), "start");
+        assert_eq!(strip_citations("no labels [x] (#1)"), "no labels [x] (#1)");
+    }
+
+    #[test]
     fn follow_up_search_includes_previous_question() {
         let prev = exchange("主人公は誰？", "a");
         assert_eq!(search_text("なぜ？", Some(&prev)), "主人公は誰？ なぜ？");
+        assert_eq!(
+            search_text("それはなぜ？", Some(&prev)),
+            "主人公は誰？ それはなぜ？"
+        );
+        assert_eq!(search_text("Why?", Some(&prev)), "主人公は誰？ Why?");
         assert_eq!(search_text(" なぜ？ ", None), "なぜ？");
+    }
+
+    #[test]
+    fn standalone_question_is_searched_on_its_own() {
+        let prev = exchange("Google のツールをまとめて", "a");
+        for q in [
+            "この章の概要を説明",
+            "本章の要点は？",
+            "18章すべてを読んで",
+            "第３章の結論は？",
+            "Summarize this chapter",
+            "What does chapter 18 say about tools?",
+            "ダーシーの手紙にはウィッカムについて何が書かれていた？",
+            "What did Darcy's letter say about Wickham?",
+        ] {
+            assert_eq!(search_text(q, Some(&prev)), q, "{q}");
+        }
+    }
+
+    #[test]
+    fn search_prompt_fits_any_genre() {
+        let system = hypothetical_passage("T", "A", "excerpt");
+        assert!(system.starts_with("You help search inside the book"));
+        assert!(!system.contains("people, places and events"));
+        assert!(system.contains("non-fiction"));
+        assert!(system.contains("<excerpt>\nexcerpt\n</excerpt>"));
     }
 }

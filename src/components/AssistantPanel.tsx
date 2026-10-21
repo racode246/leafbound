@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Reac
 import { useT, type Translate } from '../i18n'
 import { api } from '../lib/api'
 import { indexBookText, type IndexControl, type IndexProgress } from '../lib/bookText'
+import { citedSources, splitCitations } from '../lib/citations'
 import { isImeEnter } from '../lib/ime'
 import { quoteText } from '../lib/quote'
 import {
@@ -21,7 +22,12 @@ import Icon from './Icon'
 
 export type AskContext = Pick<
   AskRequest,
-  'chapterTitle' | 'chapterText' | 'coveredSection' | 'percent'
+  | 'chapterTitle'
+  | 'chapterText'
+  | 'chapterOmitted'
+  | 'currentSection'
+  | 'coveredSection'
+  | 'percent'
 >
 
 /** Text selected in the book to quote into the question; a new `id` quotes again. */
@@ -264,10 +270,10 @@ export default function AssistantPanel({
   }
 
   const renderAnswer = (text: string, sources: AssistantSource[]): ReactNode[] =>
-    text.split(/(\[(?:#\d+|H\d+)\])/g).map((part, i) => {
-      const label = /^\[(#\d+|H\d+)\]$/.exec(part)?.[1]
-      const source = label ? sources.find((s) => s.label === label) : undefined
-      if (!source?.cfi) return part
+    splitCitations(text).map((part, i) => {
+      if ('text' in part) return part.text
+      const source = sources.find((s) => s.label === part.label)
+      if (!source?.cfi) return `[${part.label}]`
       return (
         <button
           type="button"
@@ -277,26 +283,32 @@ export default function AssistantPanel({
           title={source.excerpt}
           onClick={() => onNavigate(source.cfi)}
         >
-          {label}
+          {part.label}
         </button>
       )
     })
 
-  const renderSources = (sources: AssistantSource[]) =>
-    sources.length > 0 && (
-      <details className="ai-sources">
-        <summary>{t('ai.sources', { count: sources.length })}</summary>
-        <ul>
-          {sources.map((s) => (
-            <li key={s.label}>
-              <button type="button" disabled={!s.cfi} onClick={() => onNavigate(s.cfi)}>
-                <span className="ai-source-label">{s.label}</span> {s.excerpt}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </details>
+  // Only what the answer cites: every retrieved passage goes to the model, but the
+  // reader is shown where this answer came from.
+  const renderSources = (answer: string, all: AssistantSource[]) => {
+    const sources = citedSources(answer, all)
+    return (
+      sources.length > 0 && (
+        <details className="ai-sources">
+          <summary>{t('ai.sources', { count: sources.length })}</summary>
+          <ul>
+            {sources.map((s) => (
+              <li key={s.label}>
+                <button type="button" disabled={!s.cfi} onClick={() => onNavigate(s.cfi)}>
+                  <span className="ai-source-label">{s.label}</span> {s.excerpt}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
     )
+  }
 
   const statusLine = (): ReactNode => {
     switch (phase.kind) {
@@ -419,7 +431,7 @@ export default function AssistantPanel({
               <div key={e.id} className="ai-turn">
                 <div className="ai-question">{e.question}</div>
                 <div className="ai-answer">{renderAnswer(e.answer, e.sources)}</div>
-                {renderSources(e.sources)}
+                {renderSources(e.answer, e.sources)}
               </div>
             ))}
             {pending && (
