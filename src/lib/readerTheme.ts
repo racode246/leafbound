@@ -10,6 +10,9 @@ import { INLINE_IMAGE_ATTR } from './inlineImages'
  */
 export const INLINE_IMAGE_MAX_EM = 1
 
+/** Inline images whose size the publisher gave in units of the text (see inlineImages.ts). */
+const SIZED = `[${INLINE_IMAGE_ATTR}~="sized"]`
+
 export interface Palette {
   bg: string
   fg: string
@@ -78,18 +81,27 @@ export function applyReaderTheme(rendition: Rendition, settings: Settings): void
     a: { color: `${palette.link} !important` },
     // Keep images (covers in particular) inside one page without distorting
     // them: publishers often set width/height to 100%, which stretches.
-    img: {
+    [`img:not(${SIZED})`]: {
       'max-width': '100% !important',
       'max-height': '100vh !important',
       width: 'auto !important',
       height: 'auto !important',
       'object-fit': 'contain !important'
     },
-    // Images inside a line of text (inline math, gaiji) follow the font size: converters
-    // often scale them all to one width, so their pixel size says nothing (#79). A cap
-    // rather than a height, so small gaiji are not enlarged; block size, for vertical text.
-    [`img[${INLINE_IMAGE_ATTR}]`]: {
-      'max-block-size': `${INLINE_IMAGE_MAX_EM}em !important`,
+    // An inline image the publisher sized in units of the text (gaiji at 1em, a
+    // fraction at 2em) keeps that size; it only has to fit the page.
+    [`img${SIZED}`]: {
+      'max-width': '100% !important',
+      'object-fit': 'contain !important'
+    },
+    // Other images inside a line of text (inline math, gaiji) follow the font size:
+    // converters often scale them all to one width, so their pixel size says nothing
+    // (#79). A cap rather than a height, so small gaiji are not enlarged; block size,
+    // for vertical text.
+    [`img[${INLINE_IMAGE_ATTR}]:not(${SIZED})`]: {
+      'max-block-size': `${INLINE_IMAGE_MAX_EM}em !important`
+    },
+    [`img[${INLINE_IMAGE_ATTR}]:not([${INLINE_IMAGE_ATTR}~="aligned"])`]: {
       'vertical-align': 'middle !important'
     },
     svg: {

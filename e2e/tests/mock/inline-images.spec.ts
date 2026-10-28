@@ -4,7 +4,8 @@ import { fixtures } from '../../support/env.ts'
 import { Library, type Reader } from '../../support/pages.ts'
 
 // A 525x367 formula inside a sentence (sized in px by the CSS, as calibre does), a 12x12
-// gaiji-like image in a sentence, and a 320x200 figure alone in its paragraph
+// gaiji-like image in a sentence, a fraction the CSS makes 2em tall and lowers by 0.5em,
+// a 400x400 gaiji the CSS makes 1em tall, and a 320x200 figure alone in its paragraph
 // (scripts/make_e2e_epub.py).
 const BOOK = { path: join(fixtures, 'inline-images.epub'), title: 'inline-images' }
 
@@ -20,8 +21,11 @@ async function openBook(page: Page): Promise<Reader> {
   return library.open(BOOK.title)
 }
 
-/** Rendered height of the image in the paragraph with this id, and the paragraph's font size. */
-async function measure(reader: Reader, id: string): Promise<{ height: number; fontSize: number }> {
+/** Rendered height and vertical-align of the image in the paragraph with this id, and the paragraph's font size. */
+async function measure(
+  reader: Reader,
+  id: string
+): Promise<{ height: number; fontSize: number; verticalAlign: string }> {
   const img = reader.content.locator(`#${id} img`)
   await expect(img).toBeVisible()
   return img.evaluate(async (el: HTMLImageElement) => {
@@ -29,7 +33,8 @@ async function measure(reader: Reader, id: string): Promise<{ height: number; fo
     const p = el.parentElement as HTMLElement
     return {
       height: el.getBoundingClientRect().height,
-      fontSize: Number.parseFloat(getComputedStyle(p).fontSize)
+      fontSize: Number.parseFloat(getComputedStyle(p).fontSize),
+      verticalAlign: getComputedStyle(el).verticalAlign
     }
   })
 }
@@ -42,6 +47,7 @@ test('an image inside a sentence is sized to the text, a figure keeps its size',
   const formula = await measure(reader, 'inline')
   expect(formula.height).toBeGreaterThan(formula.fontSize * 0.5)
   expect(formula.height).toBeLessThanOrEqual(formula.fontSize * 1.05)
+  expect(formula.verticalAlign).toBe('middle')
   const width = await reader.content
     .locator('#inline img')
     .evaluate((el) => el.getBoundingClientRect().width)
@@ -51,6 +57,18 @@ test('an image inside a sentence is sized to the text, a figure keeps its size',
   // A cap, not a height: a small inline image is not enlarged.
   expect((await measure(reader, 'gaiji')).height).toBeCloseTo(12, 0)
   expect((await measure(reader, 'figure')).height).toBeCloseTo(200, 0)
+})
+
+test('a size and position the publisher gives in units of the text are kept', async ({ page }) => {
+  const reader = await openBook(page)
+
+  const fraction = await measure(reader, 'fraction')
+  expect.soft(fraction.height).toBeCloseTo(fraction.fontSize * 2, 0)
+  expect.soft(fraction.verticalAlign).toBe(`${-0.5 * fraction.fontSize}px`)
+
+  const gaiji = await measure(reader, 'gaiji-em')
+  expect.soft(gaiji.height).toBeCloseTo(gaiji.fontSize, 0)
+  expect.soft(gaiji.verticalAlign).toBe('middle')
 })
 
 test('images inside a sentence follow the font size', async ({ page }) => {

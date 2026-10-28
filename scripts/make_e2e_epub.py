@@ -11,7 +11,9 @@
   Kindle format, for inferring the nesting of the Contents panel.
 - inline-images.epub: formula images inside sentences, scaled to one fixed width with the
   pixel size repeated in the CSS as calibre does (525x367 for a short formula), a small
-  gaiji-like image, and a figure alone in its paragraph, for sizing images to the text.
+  gaiji-like image, images the publisher sized in em (a fraction 2em tall and lowered
+  0.5em, a 400x400 gaiji at 1em), and a figure alone in its paragraph, for sizing images
+  to the text.
 
 Run: python scripts/make_e2e_epub.py
 Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
@@ -380,11 +382,16 @@ def write_inline_images(out: Path = INLINE_OUT) -> None:
     formula = png(525, 367, lambda x, y: ink if (x // 40 + y // 40) % 3 == 0 else white)
     gaiji = png(12, 12, lambda x, y: ink if 3 <= x <= 8 else white)
     figure = png(320, 200, lambda x, y: (0x2F, 0x5D, 0x50) if y < 160 else white)
+    fraction = png(120, 240, lambda x, y: ink if 112 <= y <= 128 or (x // 30 + y // 30) % 4 == 0 else white)
+    big_gaiji = png(400, 400, lambda x, y: ink if 100 <= x <= 300 and (y // 50) % 2 == 0 else white)
     css = (
         "p { margin: 0 0 0.5em; }\n"
         # calibre repeats the scaled pixel size of each image as a class.
         ".calibre_57 { height: 367px; text-align: middle; width: 525px; }\n"
         ".fig { display: block; text-indent: 0; margin: 1em 0 0; }\n"
+        # Sizes and positions a publisher gives in units of the text.
+        ".frac { height: 2em; vertical-align: -0.5em; }\n"
+        "img.gaiji { height: 1em; }\n"
     )
     chapter = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -394,6 +401,8 @@ def write_inline_images(out: Path = INLINE_OUT) -> None:
         '<p id="inline">With n variables there are <img class="calibre_57" src="formula.png" alt="2^n"/>'
         " combinations of inputs, and a truth table lists the output for each one of them.</p>\n"
         '<p id="gaiji">An old ligature <img src="gaiji.png" alt="gaiji"/> stays the size it was drawn.</p>\n'
+        '<p id="fraction">Half of it, <img class="frac" src="fraction.png" alt="1/2"/>, goes to the left.</p>\n'
+        '<p id="gaiji-em">A rare character <img class="gaiji" src="gaiji-large.png" alt="gaiji"/> drawn large.</p>\n'
         '<p class="fig" id="figure"><img src="figure.png" alt="Figure 1"/>\u00a0\u00a0\u00a0 </p>\n'
         "<p>Figure 1 A truth table</p>\n"
         f"<p>{LONG_PARAGRAPH}</p>\n"
@@ -414,6 +423,8 @@ def write_inline_images(out: Path = INLINE_OUT) -> None:
     <item id="formula" href="formula.png" media-type="image/png"/>
     <item id="gaiji" href="gaiji.png" media-type="image/png"/>
     <item id="figure" href="figure.png" media-type="image/png"/>
+    <item id="fraction" href="fraction.png" media-type="image/png"/>
+    <item id="gaiji-large" href="gaiji-large.png" media-type="image/png"/>
     <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
   </manifest>
   <spine><itemref idref="c1"/></spine>
@@ -438,6 +449,8 @@ def write_inline_images(out: Path = INLINE_OUT) -> None:
         z.writestr(entry("OEBPS/formula.png"), formula)
         z.writestr(entry("OEBPS/gaiji.png"), gaiji)
         z.writestr(entry("OEBPS/figure.png"), figure)
+        z.writestr(entry("OEBPS/fraction.png"), fraction)
+        z.writestr(entry("OEBPS/gaiji-large.png"), big_gaiji)
         z.writestr(entry("OEBPS/c1.xhtml"), chapter)
     print(f"wrote {out}")
 
