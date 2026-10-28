@@ -41,7 +41,7 @@ test('an image inside a sentence is sized to the text, a figure keeps its size',
 
   const formula = await measure(reader, 'inline')
   expect(formula.height).toBeGreaterThan(formula.fontSize * 0.5)
-  expect(formula.height).toBeLessThanOrEqual(formula.fontSize * 1.5)
+  expect(formula.height).toBeLessThanOrEqual(formula.fontSize * 1.05)
   const width = await reader.content
     .locator('#inline img')
     .evaluate((el) => el.getBoundingClientRect().width)
@@ -67,6 +67,6 @@ test('images inside a sentence follow the font size', async ({ page }) => {
     .toBeGreaterThan(before.fontSize)
   const after = await measure(reader, 'inline')
   expect(after.height / before.height).toBeCloseTo(after.fontSize / before.fontSize, 1)
-  expect(after.height).toBeLessThanOrEqual(after.fontSize * 1.5)
+  expect(after.height).toBeLessThanOrEqual(after.fontSize * 1.05)
   expect((await measure(reader, 'figure')).height).toBeCloseTo(200, 0)
 })

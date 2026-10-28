@@ -2,8 +2,13 @@ import type { Rendition } from 'epubjs'
 import { PUBLISHER_FONT, type Settings, type ThemeName } from '../types'
 import { INLINE_IMAGE_ATTR } from './inlineImages'
 
-/** Largest height of an image inside a line of text, in em of the surrounding text. */
-export const INLINE_IMAGE_MAX_EM = 1.3
+/**
+ * Largest height of an image inside a line of text, in em of the surrounding text: the
+ * em box of a character. Converters scale each image by a different factor, so only a
+ * fixed cap is possible; at 1.3em formulas without white space around them (x · y)
+ * looked half again as tall as the kanji next to them.
+ */
+export const INLINE_IMAGE_MAX_EM = 1
 
 export interface Palette {
   bg: string
@@ -82,7 +87,7 @@ export function applyReaderTheme(rendition: Rendition, settings: Settings): void
     },
     // Images inside a line of text (inline math, gaiji) follow the font size: converters
     // often scale them all to one width, so their pixel size says nothing (#79). A cap
-    // rather than a height, so 1em gaiji are not enlarged; block size, for vertical text.
+    // rather than a height, so small gaiji are not enlarged; block size, for vertical text.
     [`img[${INLINE_IMAGE_ATTR}]`]: {
       'max-block-size': `${INLINE_IMAGE_MAX_EM}em !important`,
       'vertical-align': 'middle !important'
