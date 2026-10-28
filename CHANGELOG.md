@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/racode246/leafbound/compare/v0.7.1...v0.7.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **reader:** size images inside a line of text to the font ([#80](https://github.com/racode246/leafbound/issues/80)) ([4d4ec2e](https://github.com/racode246/leafbound/commit/4d4ec2e1b2193e11e92386d278dbadbfbbb0161b))
+
 ## [0.7.1](https://github.com/racode246/leafbound/compare/v0.7.0...v0.7.1) (2026-10-21)
 
 
