@@ -20,6 +20,7 @@ import ePub, {
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { fontSizeForKey } from '../lib/fontSizeKeys'
+import { markInlineImages } from '../lib/inlineImages'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
 import { isJumpBackKey, jumpBackShortcut, useJumpBack } from '../lib/jumpBack'
@@ -395,6 +396,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         })
 
         rendition.hooks.content.register((contents: Contents) => {
+          // The theme sizes images inside a line of text to the font (#79).
+          markInlineImages(contents.document)
           // epub.js passes keys to handleKey from a passive listener, where preventDefault()
           // does nothing; cancel the browser's Back for the jump-back keys here.
           contents.document.addEventListener('keydown', (e: KeyboardEvent) => {
