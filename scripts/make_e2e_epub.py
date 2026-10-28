@@ -9,6 +9,9 @@
 - numbered-contents.epub: EPUB 2 with only a toc.ncx whose entries are all at the top
   level but numbered (第N部 / N章 / N.N / N.N.N), like a book calibre converted from a
   Kindle format, for inferring the nesting of the Contents panel.
+- inline-images.epub: formula images inside sentences, scaled to one fixed width with the
+  pixel size repeated in the CSS as calibre does (525x367 for a short formula), a small
+  gaiji-like image, and a figure alone in its paragraph, for sizing images to the text.
 
 Run: python scripts/make_e2e_epub.py
 Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
@@ -367,8 +370,81 @@ def write_numbered_contents(out: Path = NUMBERED_OUT) -> None:
     print(f"wrote {out}")
 
 
+INLINE_OUT = FIXTURES / "inline-images.epub"
+
+
+def write_inline_images(out: Path = INLINE_OUT) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    white, ink = (0xFF, 0xFF, 0xFF), (0x10, 0x10, 0x10)
+    # A "2^n" stand-in: dark strokes on white, scaled to 525 px wide like every formula.
+    formula = png(525, 367, lambda x, y: ink if (x // 40 + y // 40) % 3 == 0 else white)
+    gaiji = png(12, 12, lambda x, y: ink if 3 <= x <= 8 else white)
+    figure = png(320, 200, lambda x, y: (0x2F, 0x5D, 0x50) if y < 160 else white)
+    css = (
+        "p { margin: 0 0 0.5em; }\n"
+        # calibre repeats the scaled pixel size of each image as a class.
+        ".calibre_57 { height: 367px; text-align: middle; width: 525px; }\n"
+        ".fig { display: block; text-indent: 0; margin: 1em 0 0; }\n"
+    )
+    chapter = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Boolean Functions</title>'
+        '<link rel="stylesheet" type="text/css" href="style.css"/></head><body>'
+        "<h1>Boolean Functions</h1>\n"
+        '<p id="inline">With n variables there are <img class="calibre_57" src="formula.png" alt="2^n"/>'
+        " combinations of inputs, and a truth table lists the output for each one of them.</p>\n"
+        '<p id="gaiji">An old ligature <img src="gaiji.png" alt="gaiji"/> stays the size it was drawn.</p>\n'
+        '<p class="fig" id="figure"><img src="figure.png" alt="Figure 1"/>\u00a0\u00a0\u00a0 </p>\n'
+        "<p>Figure 1 A truth table</p>\n"
+        f"<p>{LONG_PARAGRAPH}</p>\n"
+        "</body></html>\n"
+    )
+    opf = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-inline-images</dc:identifier>
+    <dc:title>Inline Images</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>en</dc:language>
+    <meta property="dcterms:modified">2026-10-29T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="css" href="style.css" media-type="text/css"/>
+    <item id="formula" href="formula.png" media-type="image/png"/>
+    <item id="gaiji" href="gaiji.png" media-type="image/png"/>
+    <item id="figure" href="figure.png" media-type="image/png"/>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="c1"/></spine>
+</package>
+"""
+    nav = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Contents</title></head><body><nav epub:type="toc"><ol>
+<li><a href="c1.xhtml">Boolean Functions</a></li></ol></nav></body></html>
+"""
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/nav.xhtml"), nav)
+        z.writestr(entry("OEBPS/style.css"), css)
+        z.writestr(entry("OEBPS/formula.png"), formula)
+        z.writestr(entry("OEBPS/gaiji.png"), gaiji)
+        z.writestr(entry("OEBPS/figure.png"), figure)
+        z.writestr(entry("OEBPS/c1.xhtml"), chapter)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
     cover_book()
     write_long_contents()
     write_numbered_contents()
+    write_inline_images()

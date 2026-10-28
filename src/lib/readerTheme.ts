@@ -1,5 +1,9 @@
 import type { Rendition } from 'epubjs'
 import { PUBLISHER_FONT, type Settings, type ThemeName } from '../types'
+import { INLINE_IMAGE_ATTR } from './inlineImages'
+
+/** Largest height of an image inside a line of text, in em of the surrounding text. */
+export const INLINE_IMAGE_MAX_EM = 1.3
 
 export interface Palette {
   bg: string
@@ -75,6 +79,13 @@ export function applyReaderTheme(rendition: Rendition, settings: Settings): void
       width: 'auto !important',
       height: 'auto !important',
       'object-fit': 'contain !important'
+    },
+    // Images inside a line of text (inline math, gaiji) follow the font size: converters
+    // often scale them all to one width, so their pixel size says nothing (#79). A cap
+    // rather than a height, so 1em gaiji are not enlarged; block size, for vertical text.
+    [`img[${INLINE_IMAGE_ATTR}]`]: {
+      'max-block-size': `${INLINE_IMAGE_MAX_EM}em !important`,
+      'vertical-align': 'middle !important'
     },
     svg: {
       'max-width': '100% !important',
