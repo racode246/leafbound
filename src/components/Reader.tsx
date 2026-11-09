@@ -24,6 +24,13 @@ import { markInlineImages } from '../lib/inlineImages'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
 import { isJumpBackKey, jumpBackShortcut, useJumpBack } from '../lib/jumpBack'
+import {
+  extractNoteText,
+  type NoteLink,
+  type NoteRefKind,
+  noteRefKind,
+  resolveBookLink
+} from '../lib/notes'
 import { searchBook, type SearchControl, type SearchProgress } from '../lib/search'
 import { type AnchorPlace, currentTocEntry, flattenToc, type TocEntry } from '../lib/tocCurrent'
 import { inferTocNesting } from '../lib/tocInfer'
@@ -44,6 +51,7 @@ import TitleBar from './TitleBar'
 import SearchPanel from './SearchPanel'
 import AnnotationsPanel from './AnnotationsPanel'
 import SelectionMenu from './SelectionMenu'
+import NotePopup from './NotePopup'
 import AnnotationEditor from './AnnotationEditor'
 import PageNav from './PageNav'
 import Icon from './Icon'
@@ -82,6 +90,15 @@ interface EditingState {
   id: string
   x: number
   y: number
+}
+
+interface NoteState {
+  paragraphs: string[]
+  /** Where "Go to note" goes. */
+  href: string
+  x: number
+  top: number
+  bottom: number
 }
 
 const SEARCH_HIT_CLASS = 'lb-search-hit'
@@ -162,6 +179,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   annotationsRef.current = annotations
   const [selection, setSelection] = useState<SelectionState | null>(null)
   const [editing, setEditing] = useState<EditingState | null>(null)
+
+  // The note popup, and the click it answers (set while the note loads, null when closed).
+  const [note, setNote] = useState<NoteState | null>(null)
+  const noteRequestRef = useRef<object | null>(null)
+  const closeNote = useCallback(() => {
+    noteRequestRef.current = null
+    setNote(null)
+  }, [])
 
   // Search
   const [query, setQuery] = useState('')
@@ -298,6 +323,48 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     }
   }, [book.id, addHighlight])
 
+  // ---- notes --------------------------------------------------------------
+
+  /**
+   * Shows the note of a clicked reference instead of following the link. The link has to be
+   * stopped before its note is known, so it is followed afterwards if there turns out to be none.
+   */
+  const openNoteFor = (epubBook: EpubBook, contents: Contents, e: PointerEvent) => {
+    const anchor = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+    const kind = anchor && noteRefKind(anchor)
+    const section = epubBook.spine.get(contents.sectionIndex)
+    const link =
+      anchor && section && resolveBookLink(anchor.getAttribute('href') ?? '', section.href)
+    if (!anchor || !kind || !link) return
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    const request = {}
+    noteRequestRef.current = request
+    setSelection(null)
+    setEditing(null)
+    void findNote(epubBook, contents, anchor, link, kind)
+      .catch((err) => {
+        console.warn('note failed', link, err)
+        return null
+      })
+      .then((found) => {
+        if (noteRequestRef.current !== request) return
+        if (!found) {
+          noteRequestRef.current = null
+          anchor.onclick?.(e)
+          return
+        }
+        const rect = anchor.getBoundingClientRect()
+        const frame = iframeFor(contents.document)?.getBoundingClientRect()
+        setNote({
+          ...found,
+          x: (frame?.left ?? 0) + rect.left + rect.width / 2,
+          top: (frame?.top ?? 0) + rect.top,
+          bottom: (frame?.top ?? 0) + rect.bottom
+        })
+      })
+  }
+
   // ---- rendition lifecycle ----------------------------------------------
 
   // Rebuild the rendition only for a new book, flow or spread; the position comes back from
@@ -316,6 +383,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     jumpRef.current = null
     setSelection(null)
     setEditing(null)
+    closeNote()
     searchHitRef.current = null
 
     void (async () => {
@@ -363,6 +431,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             pct = loc.start.index / Math.max(1, total)
           }
           if (!Number.isFinite(pct)) pct = 0
+          if (cfi !== lastCfiRef.current) closeNote()
           persist(cfi, Math.min(1, Math.max(0, pct)))
           const entries = tocEntriesRef.current
           if (entries) {
@@ -381,6 +450,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         rendition.on('keydown', handleKey)
 
         rendition.on('selected', (cfiRange: string, contents: Contents) => {
+          // A double click on a reference selects its number.
+          if (noteRequestRef.current) return
           const sel = contents.window.getSelection()
           const text = sel?.toString().trim() ?? ''
           if (!sel || !text || sel.rangeCount === 0) return
@@ -396,6 +467,14 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         })
 
         rendition.hooks.content.register((contents: Contents) => {
+          // In the capture phase, to run before the onclick epub.js puts on every link.
+          contents.document.addEventListener(
+            'click',
+            (e: PointerEvent) => {
+              if (epubBook) openNoteFor(epubBook, contents, e)
+            },
+            true
+          )
           // The theme sizes images inside a line of text to the font (#79).
           markInlineImages(contents.document)
           // epub.js passes keys to handleKey from a passive listener, where preventDefault()
@@ -419,6 +498,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           contents.document.addEventListener('mousedown', () => {
             setSelection(null)
             setEditing(null)
+            closeNote()
           })
           // epub.js forwards keys to handleKey from a passive listener, where preventDefault()
           // does nothing; cancel the page zoom of the font size keys here.
@@ -529,10 +609,11 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           setPanel('none')
           setSelection(null)
           setEditing(null)
+          closeNote()
           break
       }
     },
-    [next, prev]
+    [next, prev, closeNote]
   )
 
   useEffect(() => {
@@ -542,6 +623,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
+      closeNote() // the popup stops its own mousedown from reaching here
       const el = e.target as Element | null
       if (el?.closest('.selection-menu, .annotation-editor, .panel')) return
       setSelection(null)
@@ -549,7 +631,7 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [])
+  }, [closeNote])
 
   useEffect(() => {
     return () => {
@@ -910,6 +992,19 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
             onAsk={askAboutSelection}
           />
         )}
+        {note && (
+          <NotePopup
+            paragraphs={note.paragraphs}
+            x={note.x}
+            top={note.top}
+            bottom={note.bottom}
+            palette={palette}
+            onGoTo={() => {
+              closeNote()
+              void goTo(note.href)
+            }}
+          />
+        )}
         {editing && editingAnnotation && (
           <AnnotationEditor
             annotation={editingAnnotation}
@@ -949,6 +1044,24 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
       </footer>
     </div>
   )
+}
+
+/** The note a reference points to, read without displaying its section; null if there is none. */
+async function findNote(
+  book: EpubBook,
+  contents: Contents,
+  anchor: Element,
+  link: NoteLink,
+  kind: NoteRefKind
+): Promise<Pick<NoteState, 'paragraphs' | 'href'> | null> {
+  const section = book.spine.get(link.path)
+  if (!section) return null
+  const doc =
+    section.index === contents.sectionIndex
+      ? contents.document
+      : ((await book.load(section.url)) as Document)
+  const paragraphs = extractNoteText(doc, link.fragment, anchor, kind)
+  return paragraphs && { paragraphs, href: `${section.href}#${link.fragment}` }
 }
 
 function tocLabelForHref(toc: NavItem[], href: string): string | null {

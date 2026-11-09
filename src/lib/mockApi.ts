@@ -159,6 +159,8 @@ export const mockApi: LeafboundApi = {
     const b = find(id)
     b.progress = { cfi, percent, updatedAt: now() }
     b.lastOpenedAt = b.progress.updatedAt
+    // For the E2E tests, which check that the reading position did not move.
+    ;(window as Window & { lbMockSavedCfi?: string }).lbMockSavedCfi = cfi
   },
   setBookCategories: async (id, categories) => {
     const b = find(id)

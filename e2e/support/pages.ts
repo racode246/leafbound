@@ -123,6 +123,31 @@ export class Reader {
     return this.barButton('Back to where you were')
   }
 
+  /** The popup that shows a footnote or an endnote. */
+  get notePopup(): Locator {
+    return this.page.getByRole('dialog', { name: 'Note' })
+  }
+
+  get goToNote(): Locator {
+    return this.notePopup.getByRole('button', { name: 'Go to note', exact: true })
+  }
+
+  /** A link in the book, in the first shown section (scrolled flow shows several iframes). */
+  bookLink(name: string): Locator {
+    return this.page
+      .locator('.reader-view iframe')
+      .first()
+      .contentFrame()
+      .getByRole('link', { name, exact: true })
+  }
+
+  /** The last position saved to the mock backend; a save comes 400 ms after the last move. */
+  async savedCfi(): Promise<string | null> {
+    return this.page.evaluate(
+      () => (window as Window & { lbMockSavedCfi?: string }).lbMockSavedCfi ?? null
+    )
+  }
+
   async pageNumber(): Promise<number> {
     return Number(await this.pageBox.inputValue())
   }
