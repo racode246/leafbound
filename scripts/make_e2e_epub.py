@@ -9,6 +9,9 @@
 - numbered-contents.epub: EPUB 2 with only a toc.ncx whose entries are all at the top
   level but numbered (第N部 / N章 / N.N / N.N.N), like a book calibre converted from a
   Kindle format, for inferring the nesting of the Contents panel.
+- footnotes.epub: note references of each kind (epub:type, a bare marker, one whose target
+  is missing), a footnote in the same section, an endnote in another section and a link
+  that is not a note, for the note popup.
 
 Run: python scripts/make_e2e_epub.py
 Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
@@ -367,8 +370,82 @@ def write_numbered_contents(out: Path = NUMBERED_OUT) -> None:
     print(f"wrote {out}")
 
 
+FOOTNOTES_OUT = FIXTURES / "footnotes.epub"
+FOOTNOTES_HEAD = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head>'
+    "<title>{title}</title></head><body><h1>{title}</h1>\n"
+)
+FOOTNOTES_TAIL = "\n</body></html>\n"
+
+
+def footnotes_filler(label: str, count: int) -> str:
+    return "\n".join(f"<p>{LONG_PARAGRAPH} ({label}.{i + 1})</p>" for i in range(count))
+
+
+def write_footnotes(out: Path = FOOTNOTES_OUT) -> None:
+    # The references are on the first screen; the filler puts the footnote some pages later.
+    chapter_one = (
+        FOOTNOTES_HEAD.format(title="Chapter One")
+        + '<p>The keeper lit the lamp<a id="r1" epub:type="noteref" href="#fn1">1</a> and waited.</p>\n'
+        + '<p>The ferry was late<sup><a id="r2" href="notes.xhtml#en2">2</a></sup> again.</p>\n'
+        + '<p>A lost reference<a epub:type="noteref" href="c2.xhtml#missing">3</a> stays a link.</p>\n'
+        + '<p>For the harbour, <a href="c2.xhtml">see Chapter Two</a>.</p>\n'
+        + footnotes_filler("one", 30)
+        + '\n<aside id="fn1" epub:type="footnote"><p>The lamp burned whale oil until 1890. '
+        + '<a epub:type="backlink" href="#r1">\u21a9</a></p></aside>'
+        + FOOTNOTES_TAIL
+    )
+    chapter_two = FOOTNOTES_HEAD.format(title="Chapter Two") + footnotes_filler("two", 14) + FOOTNOTES_TAIL
+    notes = (
+        FOOTNOTES_HEAD.format(title="Notes")
+        + '<ol><li id="en2">The ferry only ran at high tide. <a href="c1.xhtml#r2">\u21a9</a></li></ol>\n'
+        # Long enough that scrolled flow can bring the start of this last section to the top.
+        + footnotes_filler("notes", 14)
+        + FOOTNOTES_TAIL
+    )
+    sections = [("c1", "Chapter One", chapter_one), ("c2", "Chapter Two", chapter_two), ("notes", "Notes", notes)]
+    manifest = "\n".join(f'<item id="{n}" href="{n}.xhtml" media-type="application/xhtml+xml"/>' for n, _, _ in sections)
+    spine = "".join(f'<itemref idref="{n}"/>' for n, _, _ in sections)
+    nav_items = "\n".join(f'<li><a href="{n}.xhtml">{t}</a></li>' for n, t, _ in sections)
+    opf = f"""<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-footnotes</dc:identifier>
+    <dc:title>Footnotes</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>en</dc:language>
+    <meta property="dcterms:modified">2026-11-09T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    {manifest}
+  </manifest>
+  <spine>{spine}</spine>
+</package>
+"""
+    nav = f"""<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Contents</title></head><body><nav epub:type="toc"><ol>{nav_items}</ol></nav></body></html>
+"""
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/nav.xhtml"), nav)
+        for name, _, body in sections:
+            z.writestr(entry(f"OEBPS/{name}.xhtml"), body)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
     cover_book()
     write_long_contents()
     write_numbered_contents()
+    write_footnotes()
