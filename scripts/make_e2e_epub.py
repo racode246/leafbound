@@ -17,6 +17,8 @@
 - footnotes.epub: note references of each kind (epub:type, a bare marker, one whose target
   is missing), a footnote in the same section, an endnote in another section and a link
   that is not a note, for the note popup.
+- rtl.epub: a vertical Japanese book whose pages turn from right to left (spine
+  page-progression-direction="rtl"), for the swapped ← / → keys and edge buttons.
 
 Run: python scripts/make_e2e_epub.py
 Writes them into e2e/fixtures/ (deterministic: fixed zip timestamps)
@@ -531,6 +533,53 @@ def write_footnotes(out: Path = FOOTNOTES_OUT) -> None:
     print(f"wrote {out}")
 
 
+RTL_OUT = FIXTURES / "rtl.epub"
+
+
+def write_rtl(out: Path = RTL_OUT) -> None:
+    # Long enough for several screens, so pages can turn both ways from the second one.
+    sentences = [s for _, chapter in CHAPTERS for s in chapter]
+    paragraphs = "\n".join(f"<p>{sentences[i % len(sentences)]}（{i + 1}）</p>" for i in range(120))
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja"><head><title>第一章</title>'
+        "<style>html { writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl; }</style>"
+        f"</head><body><h1>第一章</h1>\n{paragraphs}\n</body></html>\n"
+    )
+    opf = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:leafbound-rtl</dc:identifier>
+    <dc:title>縦書き</dc:title>
+    <dc:creator>Leafbound Contributors</dc:creator>
+    <dc:language>ja</dc:language>
+    <meta property="dcterms:modified">2026-11-18T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine page-progression-direction="rtl"><itemref idref="c1"/></spine>
+</package>
+"""
+    nav = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>目次</title></head><body><nav epub:type="toc"><ol><li><a href="c1.xhtml">第一章</a></li></ol></nav></body></html>
+"""
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr(zipfile.ZipInfo("mimetype", STAMP), "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            entry("META-INF/container.xml"),
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+            "</rootfiles></container>",
+        )
+        z.writestr(entry("OEBPS/content.opf"), opf)
+        z.writestr(entry("OEBPS/nav.xhtml"), nav)
+        z.writestr(entry("OEBPS/c1.xhtml"), body)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
     cover_book()
@@ -538,3 +587,4 @@ if __name__ == "__main__":
     write_numbered_contents()
     write_inline_images()
     write_footnotes()
+    write_rtl()

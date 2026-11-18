@@ -24,6 +24,7 @@ import { markInlineImages } from '../lib/inlineImages'
 import { applyReaderTheme, PALETTES } from '../lib/readerTheme'
 import { isMac, shortcutLabel } from '../lib/platform'
 import { isJumpBackKey, jumpBackShortcut, useJumpBack } from '../lib/jumpBack'
+import { edgeTurns, isRtlBook, pageTurnForKey } from '../lib/pageKeys'
 import {
   extractNoteText,
   type NoteLink,
@@ -172,6 +173,10 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
   const jumpBack = useJumpBack(book.id)
   // handleKey is registered once with epub.js, so it calls Back through a ref.
   const goBackRef = useRef<() => void>(() => {})
+  // Pages turn from right to left (spine page-progression-direction="rtl"); ← / → and the edge
+  // buttons swap. The ref is for handleKey, registered once with epub.js.
+  const [rtl, setRtl] = useState(false)
+  const rtlRef = useRef(false)
 
   // Annotations
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -380,6 +385,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
     setStatus('loading')
     setTotalPages(0)
+    rtlRef.current = false
+    setRtl(false)
     jumpRef.current = null
     setSelection(null)
     setEditing(null)
@@ -512,6 +519,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         debug('displayed, disposed', disposed)
         if (disposed) return
         for (const a of annotationsRef.current) addHighlight(rendition, a)
+        rtlRef.current = isRtlBook(epubBook)
+        setRtl(rtlRef.current)
         setStatus('ready')
 
         const nav = await epubBook.loaded.navigation
@@ -593,24 +602,18 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
         pageInputRef.current?.focus()
         return
       }
-      switch (e.key) {
-        case 'ArrowRight':
-        case 'PageDown':
-        case ' ':
-          e.preventDefault()
-          next()
-          break
-        case 'ArrowLeft':
-        case 'PageUp':
-          e.preventDefault()
-          prev()
-          break
-        case 'Escape':
-          setPanel('none')
-          setSelection(null)
-          setEditing(null)
-          closeNote()
-          break
+      const turn = pageTurnForKey(e.key, rtlRef.current)
+      if (turn) {
+        e.preventDefault()
+        if (turn === 'next') next()
+        else prev()
+        return
+      }
+      if (e.key === 'Escape') {
+        setPanel('none')
+        setSelection(null)
+        setEditing(null)
+        closeNote()
       }
     },
     [next, prev, closeNote]
@@ -798,6 +801,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
 
   const editingAnnotation = editing ? (annotations.find((a) => a.id === editing.id) ?? null) : null
 
+  const edges = edgeTurns(rtl)
+
   return (
     <div
       className="reader"
@@ -898,8 +903,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           <button
             type="button"
             className="edge edge-left"
-            onClick={prev}
-            aria-label={t('reader.prev')}
+            onClick={edges.left === 'next' ? next : prev}
+            aria-label={t(edges.left === 'next' ? 'reader.next' : 'reader.prev')}
           >
             <Icon icon={ChevronLeft} />
           </button>
@@ -909,8 +914,8 @@ export default function Reader({ book, settings, onSettings, onBack, onProgress 
           <button
             type="button"
             className="edge edge-right"
-            onClick={next}
-            aria-label={t('reader.next')}
+            onClick={edges.right === 'next' ? next : prev}
+            aria-label={t(edges.right === 'next' ? 'reader.next' : 'reader.prev')}
           >
             <Icon icon={ChevronRight} />
           </button>
