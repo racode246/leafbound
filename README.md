@@ -82,6 +82,8 @@ Requirements at runtime: Windows 10 or 11 with the WebView2 runtime (included in
 
 Mouse wheel turns pages in paged mode.
 
+In a book whose pages turn from right to left (such as a vertical Japanese novel), `←` and `→` swap: `←` goes to the next page and `→` to the previous one. The arrow buttons at the left and right edges swap the same way. `PageDown`, `Space` and `PageUp` do not change.
+
 ## Building from source
 
 Prerequisites:
