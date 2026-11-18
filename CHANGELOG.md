@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/racode246/leafbound/compare/v0.7.2...v0.8.0) (2026-11-18)
+
+
+### Features
+
+* **reader:** show footnotes in a popup instead of jumping to them ([#83](https://github.com/racode246/leafbound/issues/83)) ([802177e](https://github.com/racode246/leafbound/commit/802177e5d5a06c6763b78480431143c6be2de785)), closes [#82](https://github.com/racode246/leafbound/issues/82)
+* **reader:** swap ← / → and the edge buttons in right-to-left books ([#87](https://github.com/racode246/leafbound/issues/87)) ([a0a9150](https://github.com/racode246/leafbound/commit/a0a915036e2b000f19b55dcd92b67569234fb2e1))
+
 ## [0.7.2](https://github.com/racode246/leafbound/compare/v0.7.1...v0.7.2) (2026-10-28)
 
 
